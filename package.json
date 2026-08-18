@@ -8,6 +8,7 @@
 		"start": "node backend/server.js",
 		"seed:products": "node backend/scripts/seedProducts.js",
 		"seed:products:clear": "node backend/scripts/seedProducts.js --clear",
+		"seed:products:api": "node backend/scripts/seedProductsFromApi.js --clear",
 		"test": "node --test backend/tests",
 		"build": "npm install && npm install --prefix frontend --include=dev && npm run build --prefix frontend"
 	},
