@@ -93,6 +93,8 @@ export const useProductStore = create((set, get) => ({
 			toast.error(error.response?.data?.message || "Failed to load catalog");
 		}
 	},
+
+	fetchAllProducts: async () => {
 		set({ loading: true });
 		try {
 			const response = await axios.get("/products");
