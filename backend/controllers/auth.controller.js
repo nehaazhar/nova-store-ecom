@@ -8,7 +8,7 @@ import {
 	normalizeEmail,
 	toPublicUser,
 } from "../utils/auth.utils.js";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email.utils.js";
+import { isSmtpConfigured, sendPasswordResetEmail, sendVerificationEmail } from "../utils/email.utils.js";
 
 const VERIFY_EXPIRES_MS = 24 * 60 * 60 * 1000;
 const RESET_EXPIRES_MS = 60 * 60 * 1000;
@@ -85,18 +85,24 @@ export const signup = async (req, res) => {
 		name,
 		email,
 		password,
-		isEmailVerified: false,
+		isEmailVerified: !isSmtpConfigured(),
 	});
 	const token = createRandomToken();
 	user.emailVerifyTokenHash = hashToken(token);
 	user.emailVerifyExpires = new Date(Date.now() + VERIFY_EXPIRES_MS);
 	await user.save();
 
-	const verifyUrl = `${clientUrl()}/verify-email?token=${token}`;
-	await sendVerificationEmail({ to: email, name, verifyUrl });
+	if (isSmtpConfigured()) {
+		const verifyUrl = `${clientUrl()}/verify-email?token=${token}`;
+		await sendVerificationEmail({ to: email, name, verifyUrl });
+		return res.status(201).json({
+			message: "Account created. Check your email to verify before logging in.",
+			email,
+		});
+	}
 
 	res.status(201).json({
-		message: "Account created. Check your email to verify before logging in.",
+		message: "Account created. You can log in now.",
 		email,
 	});
 };
@@ -110,7 +116,7 @@ export const login = async (req, res) => {
 		throw new HttpError(400, "Invalid email or password");
 	}
 
-	if (user.isEmailVerified === false) {
+	if (user.isEmailVerified === false && isSmtpConfigured()) {
 		const err = new HttpError(403, "Please verify your email before logging in");
 		err.code = "EMAIL_NOT_VERIFIED";
 		throw err;

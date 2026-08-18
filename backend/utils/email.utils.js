@@ -1,6 +1,11 @@
 import nodemailer from "nodemailer";
 import Product from "../models/product.model.js";
 
+export const isSmtpConfigured = () => {
+	const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
+	return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
+};
+
 let transporter = null;
 
 const getTransporter = () => {
