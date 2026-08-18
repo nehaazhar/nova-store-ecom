@@ -7,8 +7,7 @@ import {
   syncOptionListsFromVariants,
   totalVariantStock,
 } from "../utils/variant.utils.js";
-import {
-  buildCatalogMongoQuery,
+import { buildCatalogDocs } from "../data/fashionCatalog.js";
   bumpCatalogCache,
   catalogCacheKey,
   catalogCacheVersionKey,
@@ -560,6 +559,23 @@ export const toggleFeaturedProduct = async (req, res) => {
     res.json(updatedProduct);
   } catch (error) {
     console.log("Error in toggleFeaturedProduct controller", error.message);
+    res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+export const seedFullCatalog = async (req, res) => {
+  try {
+    await Product.deleteMany({});
+    const docs = buildCatalogDocs();
+    const products = await Product.insertMany(docs);
+    await updateFeaturedProductsCache();
+    await bumpCatalogCache(redis);
+    res.json({
+      message: `Loaded ${products.length} products with categories, colors, sizes, and stock`,
+      count: products.length,
+    });
+  } catch (error) {
+    console.log("Error in seedFullCatalog", error.message);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };

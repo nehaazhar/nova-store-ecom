@@ -81,7 +81,18 @@ export const useProductStore = create((set, get) => ({
 		}
 	},
 
-	fetchAllProducts: async () => {
+	seedFullCatalog: async () => {
+		set({ loading: true });
+		try {
+			const response = await axios.post("/products/seed-catalog");
+			toast.success(response.data.message || "Catalog loaded");
+			await get().fetchAllProducts();
+			await get().fetchCategories();
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Failed to load catalog");
+		}
+	},
 		set({ loading: true });
 		try {
 			const response = await axios.get("/products");

@@ -5,7 +5,8 @@ import { useProductStore } from "../stores/useProductStore";
 import ProductImage from "./ProductImage";
 
 const ProductsList = ({ onEdit }) => {
-	const { deleteProduct, toggleFeaturedProduct, products } = useProductStore();
+	const { deleteProduct, toggleFeaturedProduct, products, seedFullCatalog, loading } =
+		useProductStore();
 	const [search, setSearch] = useState("");
 	const [categoryFilter, setCategoryFilter] = useState("all");
 
@@ -58,6 +59,22 @@ const ProductsList = ({ onEdit }) => {
 				</div>
 
 				<div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+					<button
+						type="button"
+						onClick={() => {
+							if (
+								window.confirm(
+									"This replaces all products with a full catalog (categories, colors, sizes, stock). Continue?"
+								)
+							) {
+								seedFullCatalog();
+							}
+						}}
+						disabled={loading}
+						className="rounded-md bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+					>
+						Load full catalog
+					</button>
 					<div className="relative flex-1 sm:w-72">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
 						<input
