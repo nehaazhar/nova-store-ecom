@@ -29,12 +29,56 @@ const userSchema = new mongoose.Schema(
 					type: mongoose.Schema.Types.ObjectId,
 					ref: "Product",
 				},
+				size: { type: String, default: "" },
+				color: { type: String, default: "" },
+				style: { type: String, default: "" },
+			},
+		],
+		wishlist: [
+			{
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "Product",
+			},
+		],
+		addresses: [
+			{
+				fullName: { type: String, required: true, trim: true },
+				phone: { type: String, required: true, trim: true },
+				line1: { type: String, required: true, trim: true },
+				line2: { type: String, default: "", trim: true },
+				city: { type: String, required: true, trim: true },
+				state: { type: String, required: true, trim: true },
+				postalCode: { type: String, required: true, trim: true },
+				country: { type: String, required: true, trim: true, default: "India" },
+				isDefault: { type: Boolean, default: false },
 			},
 		],
 		role: {
 			type: String,
 			enum: ["customer", "admin"],
 			default: "customer",
+		},
+		isEmailVerified: {
+			type: Boolean,
+			default: true,
+		},
+		emailVerifyTokenHash: {
+			type: String,
+			default: "",
+			select: false,
+		},
+		emailVerifyExpires: {
+			type: Date,
+			select: false,
+		},
+		passwordResetTokenHash: {
+			type: String,
+			default: "",
+			select: false,
+		},
+		passwordResetExpires: {
+			type: Date,
+			select: false,
 		},
 	},
 	{

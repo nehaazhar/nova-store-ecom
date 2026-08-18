@@ -1,88 +1,265 @@
+﻿import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useCartStore } from "../stores/useCartStore";
+import { useAddressStore } from "../stores/useAddressStore";
 import { Link } from "react-router-dom";
-import { MoveRight } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
+import { Loader2, MoveRight } from "lucide-react";
 import axios from "../lib/axios";
+import toast from "react-hot-toast";
 
-const stripePromise = loadStripe(
-	"pk_test_51KZYccCoOZF2UhtOwdXQl3vcizup20zqKqT9hVUIsVzsdBrhqbUI2fE0ZdEVLdZfeHjeyFXtqaNsyCJCmZWnjNZa00PzMAjlcL"
-);
+const loadRazorpayScript = () =>
+	new Promise((resolve) => {
+		if (window.Razorpay) {
+			resolve(true);
+			return;
+		}
+		const script = document.createElement("script");
+		script.src = "https://checkout.razorpay.com/v1/checkout.js";
+		script.onload = () => resolve(true);
+		script.onerror = () => resolve(false);
+		document.body.appendChild(script);
+	});
 
 const OrderSummary = () => {
 	const { total, subtotal, coupon, isCouponApplied, cart } = useCartStore();
+	const { selectedAddressId, getSelectedAddress } = useAddressStore();
+	const forceMock = import.meta.env.VITE_USE_MOCK_CHECKOUT === "true";
+	const [paying, setPaying] = useState(false);
+	const [config, setConfig] = useState({ gateway: "none", razorpay: false, stripe: false });
+	const [checking, setChecking] = useState(true);
+
+	useEffect(() => {
+		let cancelled = false;
+		const loadConfig = async () => {
+			try {
+				const res = await axios.get("/payments/config");
+				if (!cancelled) setConfig(res.data || { gateway: "none" });
+			} catch {
+				if (!cancelled) setConfig({ gateway: "none" });
+			} finally {
+				if (!cancelled) setChecking(false);
+			}
+		};
+		loadConfig();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	const savings = subtotal - total;
 	const formattedSubtotal = subtotal.toFixed(2);
 	const formattedTotal = total.toFixed(2);
 	const formattedSavings = savings.toFixed(2);
+	const appliedCouponCode = isCouponApplied && coupon ? coupon.code : null;
+	const onlineGateway = forceMock ? "none" : config.gateway;
 
-	const handlePayment = async () => {
-		const stripe = await stripePromise;
-		const res = await axios.post("/payments/create-checkout-session", {
-			products: cart,
-			couponCode: coupon ? coupon.code : null,
-		});
+	const checkoutPayload = () => ({
+		products: cart,
+		couponCode: appliedCouponCode,
+		shippingAddressId: selectedAddressId,
+		shippingAddress: getSelectedAddress(),
+	});
 
-		const session = res.data;
-		const result = await stripe.redirectToCheckout({
-			sessionId: session.id,
-		});
-
-		if (result.error) {
-			console.error("Error:", result.error);
+	const handleCod = async () => {
+		if (paying) return;
+		if (!selectedAddressId) {
+			toast.error("Please select or add a shipping address");
+			return;
+		}
+		setPaying(true);
+		try {
+			const res = await axios.post("/payments/cod-checkout", checkoutPayload());
+			toast.success("Order placed (Cash on Delivery)");
+			window.location.href = `/purchase-success?mock=true&orderId=${res.data.orderId}`;
+		} catch (error) {
+			toast.error(
+				error.response?.data?.error ||
+					error.response?.data?.message ||
+					"COD checkout failed"
+			);
+			setPaying(false);
 		}
 	};
 
+	const handleRazorpay = async () => {
+		const ok = await loadRazorpayScript();
+		if (!ok) {
+			toast.error("Could not load Razorpay checkout");
+			setPaying(false);
+			return;
+		}
+
+		const orderRes = await axios.post("/payments/razorpay/order", checkoutPayload());
+		const { keyId, orderId, amount, currency, name, prefill } = orderRes.data;
+
+		await new Promise((resolve, reject) => {
+			const rzp = new window.Razorpay({
+				key: keyId,
+				amount,
+				currency,
+				name,
+				description: "NOVA order",
+				order_id: orderId,
+				prefill,
+				theme: { color: "#0f766e" },
+				handler: async (response) => {
+					try {
+						const verify = await axios.post("/payments/razorpay/verify", response);
+						window.location.href = `/purchase-success?mock=true&orderId=${verify.data.orderId}`;
+						resolve();
+					} catch (error) {
+						reject(error);
+					}
+				},
+				modal: {
+					ondismiss: () => reject(new Error("Payment cancelled")),
+				},
+			});
+			rzp.on("payment.failed", (resp) => {
+				reject(new Error(resp?.error?.description || "Payment failed"));
+			});
+			rzp.open();
+		});
+	};
+
+	const handlePayment = async () => {
+		if (paying) return;
+		if (!selectedAddressId) {
+			toast.error("Please select or add a shipping address");
+			return;
+		}
+
+		setPaying(true);
+		try {
+			if (onlineGateway === "razorpay") {
+				await handleRazorpay();
+				return;
+			}
+
+			if (onlineGateway === "stripe") {
+				const res = await axios.post("/payments/create-checkout-session", checkoutPayload());
+				if (res.data?.url) {
+					window.location.href = res.data.url;
+					return;
+				}
+				throw new Error("Stripe did not return a checkout URL");
+			}
+
+			const res = await axios.post("/payments/mock-checkout", checkoutPayload());
+			toast.success("Payment successful! Redirecting...");
+			window.location.href = `/purchase-success?mock=true&orderId=${res.data.orderId}`;
+		} catch (error) {
+			toast.error(
+				error.response?.data?.error ||
+					error.response?.data?.message ||
+					error.message ||
+					"Checkout failed"
+			);
+			setPaying(false);
+		}
+	};
+
+	const onlineLabel =
+		onlineGateway === "razorpay"
+			? "Pay with Razorpay (UPI / Card)"
+			: onlineGateway === "stripe"
+				? "Pay with Stripe"
+				: "Proceed with Dummy Payment";
+
 	return (
 		<motion.div
-			className='space-y-4 rounded-lg border border-gray-700 bg-gray-800 p-4 shadow-sm sm:p-6'
-			initial={{ opacity: 0, y: 20 }}
+			className="nova-card space-y-4 p-5 sm:p-6"
+			initial={{ opacity: 0, y: 16 }}
 			animate={{ opacity: 1, y: 0 }}
-			transition={{ duration: 0.5 }}
+			transition={{ duration: 0.4 }}
 		>
-			<p className='text-xl font-semibold text-emerald-400'>Order summary</p>
+			<p className="font-display text-xl font-bold text-nova-ink">Order summary</p>
 
-			<div className='space-y-4'>
-				<div className='space-y-2'>
-					<dl className='flex items-center justify-between gap-4'>
-						<dt className='text-base font-normal text-gray-300'>Original price</dt>
-						<dd className='text-base font-medium text-white'>${formattedSubtotal}</dd>
+			<div className="space-y-4">
+				<div className="space-y-2">
+					<dl className="flex items-center justify-between gap-4">
+						<dt className="text-sm text-nova-muted">Original price</dt>
+						<dd className="text-sm font-medium text-nova-ink">₹{formattedSubtotal}</dd>
 					</dl>
 
 					{savings > 0 && (
-						<dl className='flex items-center justify-between gap-4'>
-							<dt className='text-base font-normal text-gray-300'>Savings</dt>
-							<dd className='text-base font-medium text-emerald-400'>-${formattedSavings}</dd>
+						<dl className="flex items-center justify-between gap-4">
+							<dt className="text-sm text-nova-muted">Savings</dt>
+							<dd className="text-sm font-medium text-nova-accent">
+								-₹{formattedSavings}
+							</dd>
 						</dl>
 					)}
 
 					{coupon && isCouponApplied && (
-						<dl className='flex items-center justify-between gap-4'>
-							<dt className='text-base font-normal text-gray-300'>Coupon ({coupon.code})</dt>
-							<dd className='text-base font-medium text-emerald-400'>-{coupon.discountPercentage}%</dd>
+						<dl className="flex items-center justify-between gap-4">
+							<dt className="text-sm text-nova-muted">Coupon ({coupon.code})</dt>
+							<dd className="text-sm font-medium text-nova-accent">
+								-{coupon.discountPercentage}%
+							</dd>
 						</dl>
 					)}
-					<dl className='flex items-center justify-between gap-4 border-t border-gray-600 pt-2'>
-						<dt className='text-base font-bold text-white'>Total</dt>
-						<dd className='text-base font-bold text-emerald-400'>${formattedTotal}</dd>
+					<dl className="flex items-center justify-between gap-4 border-t border-nova-line pt-3">
+						<dt className="font-semibold text-nova-ink">Total</dt>
+						<dd className="font-display text-xl font-bold text-nova-ink">
+							₹{formattedTotal}
+						</dd>
 					</dl>
 				</div>
 
-				<motion.button
-					className='flex w-full items-center justify-center rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-300'
-					whileHover={{ scale: 1.05 }}
-					whileTap={{ scale: 0.95 }}
+				<button
+					type="button"
+					className="nova-btn w-full py-3"
 					onClick={handlePayment}
+					disabled={!selectedAddressId || paying || checking}
 				>
-					Proceed to Checkout
-				</motion.button>
+					{paying || checking ? (
+						<>
+							<Loader2 className="h-4 w-4 animate-spin" />
+							{checking ? "Checking payment..." : "Processing payment..."}
+						</>
+					) : (
+						onlineLabel
+					)}
+				</button>
 
-				<div className='flex items-center justify-center gap-2'>
-					<span className='text-sm font-normal text-gray-400'>or</span>
+				<button
+					type="button"
+					className="nova-btn-outline w-full py-3"
+					onClick={handleCod}
+					disabled={!selectedAddressId || paying || checking}
+				>
+					Cash on Delivery
+				</button>
+
+				{onlineGateway === "razorpay" && (
+					<p className="text-center text-xs text-nova-muted">
+						Razorpay test: UPI / card. Success card often 4111 1111 1111 1111
+					</p>
+				)}
+				{onlineGateway === "stripe" && (
+					<p className="text-center text-xs text-nova-muted">
+						Test card: 4242 4242 4242 4242 · any future date · any CVC
+					</p>
+				)}
+				{onlineGateway === "none" && !checking && (
+					<p className="text-center text-xs text-amber-600">
+						Online gateway keys nahi mili — Dummy ya Cash on Delivery use karo. Razorpay
+						India ke liye .env mein RAZORPAY_KEY_ID / SECRET add karo.
+					</p>
+				)}
+
+				{!selectedAddressId && (
+					<p className="text-center text-xs text-amber-600">
+						Select a shipping address above
+					</p>
+				)}
+
+				<div className="flex items-center justify-center gap-2">
+					<span className="text-sm text-nova-muted">or</span>
 					<Link
-						to='/'
-						className='inline-flex items-center gap-2 text-sm font-medium text-emerald-400 underline hover:text-emerald-300 hover:no-underline'
+						to="/shop"
+						className="inline-flex items-center gap-2 text-sm font-semibold text-nova-accent hover:underline"
 					>
 						Continue Shopping
 						<MoveRight size={16} />
@@ -92,4 +269,5 @@ const OrderSummary = () => {
 		</motion.div>
 	);
 };
+
 export default OrderSummary;

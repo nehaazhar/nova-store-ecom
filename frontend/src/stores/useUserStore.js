@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import axios from "../lib/axios";
 import { toast } from "react-hot-toast";
+import { useWishlistStore } from "./useWishlistStore";
 
 export const useUserStore = create((set, get) => ({
 	user: null,
@@ -12,15 +13,19 @@ export const useUserStore = create((set, get) => ({
 
 		if (password !== confirmPassword) {
 			set({ loading: false });
-			return toast.error("Passwords do not match");
+			toast.error("Passwords do not match");
+			return false;
 		}
 
 		try {
 			const res = await axios.post("/auth/signup", { name, email, password });
-			set({ user: res.data, loading: false });
+			set({ user: null, loading: false });
+			toast.success(res.data.message || "Check your email to verify your account");
+			return true;
 		} catch (error) {
 			set({ loading: false });
-			toast.error(error.response.data.message || "An error occurred");
+			toast.error(error.response?.data?.message || "An error occurred");
+			return false;
 		}
 	},
 	login: async (email, password) => {
@@ -30,9 +35,13 @@ export const useUserStore = create((set, get) => ({
 			const res = await axios.post("/auth/login", { email, password });
 
 			set({ user: res.data, loading: false });
+			return true;
 		} catch (error) {
 			set({ loading: false });
-			toast.error(error.response.data.message || "An error occurred");
+			const code = error.response?.data?.code;
+			const message = error.response?.data?.message || "An error occurred";
+			toast.error(message);
+			return { ok: false, code, message };
 		}
 	},
 
@@ -40,8 +49,84 @@ export const useUserStore = create((set, get) => ({
 		try {
 			await axios.post("/auth/logout");
 			set({ user: null });
+			useWishlistStore.setState({ wishlist: [] });
 		} catch (error) {
 			toast.error(error.response?.data?.message || "An error occurred during logout");
+		}
+	},
+
+	forgotPassword: async (email) => {
+		set({ loading: true });
+		try {
+			const res = await axios.post("/auth/forgot-password", { email });
+			set({ loading: false });
+			toast.success(res.data.message);
+			return true;
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Could not send reset email");
+			return false;
+		}
+	},
+
+	resetPassword: async ({ token, password }) => {
+		set({ loading: true });
+		try {
+			const res = await axios.post("/auth/reset-password", { token, password });
+			set({ loading: false });
+			toast.success(res.data.message);
+			return true;
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Could not reset password");
+			return false;
+		}
+	},
+
+	verifyEmail: async (token) => {
+		const res = await axios.post("/auth/verify-email", { token });
+		return res.data;
+	},
+
+	resendVerification: async (email) => {
+		set({ loading: true });
+		try {
+			const res = await axios.post("/auth/resend-verification", { email });
+			set({ loading: false });
+			toast.success(res.data.message);
+			return true;
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Could not resend email");
+			return false;
+		}
+	},
+
+	updateProfile: async (name) => {
+		set({ loading: true });
+		try {
+			const res = await axios.put("/auth/profile", { name });
+			set({ user: res.data, loading: false });
+			toast.success("Profile updated");
+			return true;
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Could not update profile");
+			return false;
+		}
+	},
+
+	changePassword: async ({ currentPassword, newPassword }) => {
+		set({ loading: true });
+		try {
+			const res = await axios.put("/auth/password", { currentPassword, newPassword });
+			set({ loading: false });
+			toast.success(res.data.message || "Password updated");
+			return true;
+		} catch (error) {
+			set({ loading: false });
+			toast.error(error.response?.data?.message || "Could not update password");
+			return false;
 		}
 	},
 
@@ -72,16 +157,25 @@ export const useUserStore = create((set, get) => ({
 	},
 }));
 
-// TODO: Implement the axios interceptors for refreshing access token
-
-// Axios interceptor for token refresh
 let refreshPromise = null;
 
 axios.interceptors.response.use(
 	(response) => response,
 	async (error) => {
 		const originalRequest = error.config;
-		if (error.response?.status === 401 && !originalRequest._retry) {
+		if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+			const url = originalRequest.url || "";
+			if (
+				url.includes("/auth/login") ||
+				url.includes("/auth/signup") ||
+				url.includes("/auth/refresh-token") ||
+				url.includes("/auth/forgot-password") ||
+				url.includes("/auth/reset-password") ||
+				url.includes("/auth/verify-email") ||
+				url.includes("/auth/resend-verification")
+			) {
+				return Promise.reject(error);
+			}
 			originalRequest._retry = true;
 
 			try {

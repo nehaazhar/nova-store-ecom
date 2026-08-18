@@ -1,3 +1,73 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+	color-scheme: light;
+	--nova-ink: #08111f;
+	--nova-accent: #0d9488;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	margin: 0;
+	min-height: 100vh;
+	font-family: "DM Sans", system-ui, sans-serif;
+	background:
+		radial-gradient(ellipse 80% 50% at 50% -10%, rgba(13, 148, 136, 0.08), transparent),
+		#f1f5f9;
+	color: #08111f;
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+}
+
+#root {
+	min-height: 100vh;
+}
+
+::selection {
+	background: rgba(13, 148, 136, 0.22);
+	color: #08111f;
+}
+
+@layer components {
+	.nova-container {
+		@apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+	}
+
+	.nova-btn {
+		@apply inline-flex items-center justify-center gap-2 rounded-2xl bg-accent-shine px-6 py-3 text-sm font-semibold text-white shadow-lift transition duration-300 hover:-translate-y-0.5 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0;
+	}
+
+	.nova-btn-ghost {
+		@apply inline-flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-md transition duration-300 hover:bg-white/20;
+	}
+
+	.nova-btn-outline {
+		@apply inline-flex items-center justify-center gap-2 rounded-2xl border border-nova-line bg-white px-6 py-3 text-sm font-semibold text-nova-ink shadow-sm transition duration-300 hover:border-nova-accent hover:text-nova-accent hover:shadow-card;
+	}
+
+	.nova-input {
+		@apply w-full rounded-2xl border border-nova-line bg-white px-4 py-3 text-sm text-nova-ink outline-none transition placeholder:text-nova-muted focus:border-nova-accent focus:ring-4 focus:ring-nova-accent/15;
+	}
+
+	.nova-card {
+		@apply rounded-3xl border border-nova-line/80 bg-white/90 shadow-card backdrop-blur-sm;
+	}
+
+	.nova-section-label {
+		@apply text-xs font-semibold uppercase tracking-[0.2em] text-nova-accent;
+	}
+
+	.nova-grain {
+		pointer-events: none;
+		position: absolute;
+		inset: 0;
+		opacity: 0.35;
+		mix-blend-mode: soft-light;
+		background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+	}
+}

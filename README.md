@@ -1,59 +1,89 @@
-<h1 align="center">E-Commerce Store 🛒</h1>
+# NOVA
 
-![Demo App](/frontend/public/screenshot-for-readme.png)
+MERN ecommerce shop — products, cart, checkout (Stripe / Razorpay / COD), orders, and an admin panel.
 
-[Video Tutorial on Youtube](https://youtu.be/sX57TLIPNx8)
+## Run locally
 
-About This Course:
-
--   🚀 Project Setup
--   🗄️ MongoDB & Redis Integration
--   💳 Stripe Payment Setup
--   🔐 Robust Authentication System
--   🔑 JWT with Refresh/Access Tokens
--   📝 User Signup & Login
--   🛒 E-Commerce Core
--   📦 Product & Category Management
--   🛍️ Shopping Cart Functionality
--   💰 Checkout with Stripe
--   🏷️ Coupon Code System
--   👑 Admin Dashboard
--   📊 Sales Analytics
--   🎨 Design with Tailwind
--   🛒 Cart & Checkout Process
--   🔒 Security
--   🛡️ Data Protection
--   🚀Caching with Redis
--   ⌛ And a lot more...
-
-### Setup .env file
+Copy `.env.example` to `.env` and add your MongoDB, Redis, and JWT secrets. Cloudinary / payments / SMTP are optional.
 
 ```bash
-PORT=5000
-MONGO_URI=your_mongo_uri
-
-UPSTASH_REDIS_URL=your_redis_url
-
-ACCESS_TOKEN_SECRET=your_access_token_secret
-REFRESH_TOKEN_SECRET=your_refresh_token_secret
-
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-
-STRIPE_SECRET_KEY=your_stripe_secret_key
-CLIENT_URL=http://localhost:5173
-NODE_ENV=development
+npm install
+npm install --prefix frontend
+npm run dev
 ```
 
-### Run this app locally
+Frontend (another terminal):
 
-```shell
-npm run build
+```bash
+npm run dev --prefix frontend
 ```
 
-### Start the app
+- App: http://localhost:5173
+- API: http://localhost:5000
 
-```shell
-npm run start
+If SMTP is not set, signup verify / password-reset links print in the backend terminal.
+
+```bash
+npm run seed:products
+npm test
 ```
+
+## Docker
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:5000
+
+## Deploy (Render)
+
+This repo’s `origin` is still the original tutorial GitHub. Push to **your own** repo first, then host one Node service (API + built React UI).
+
+### 1. MongoDB Atlas
+
+1. [mongodb.com/atlas](https://www.mongodb.com/atlas) → free cluster
+2. Database Access → user + password
+3. Network Access → `0.0.0.0/0` (or Render IPs later)
+4. Connect → Drivers → copy `MONGO_URI`
+
+### 2. Redis (Upstash)
+
+1. [upstash.com](https://upstash.com) → Redis → create
+2. Copy the **`rediss://...`** URL (TCP), not the REST token  
+3. That is `UPSTASH_REDIS_URL`
+
+### 3. Your GitHub repo
+
+GitHub → New repository (e.g. `nova-store`) → don’t add README. Then:
+
+```bash
+git remote rename origin tutorial
+git remote add origin https://github.com/YOUR_USERNAME/nova-store.git
+git add -A
+git commit -m "NOVA store ready to deploy"
+git push -u origin master
+```
+
+### 4. Render
+
+1. [render.com](https://render.com) → New → Blueprint, or Web Service from that repo
+2. Build: `npm run build` · Start: `npm start`
+3. Environment:
+
+| Key | Value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `MONGO_URI` | Atlas string |
+| `UPSTASH_REDIS_URL` | `rediss://...` |
+| `ACCESS_TOKEN_SECRET` | long random string |
+| `REFRESH_TOKEN_SECRET` | another long random string |
+| `CLIENT_URL` | `https://your-service.onrender.com` (set after first deploy if needed) |
+| Cloudinary / Stripe / Razorpay | optional; without them images/payments stay limited |
+
+4. After the URL exists, set `CLIENT_URL` to that `https://...` and redeploy.
+5. Stripe webhook (if using Stripe): `https://your-service.onrender.com/api/payments/webhook`
+
+First load on the free plan can take ~1 minute (cold start). Open `/api/health` — `{ "ok": true }` means the server is up.
+
+Local Docker is still: `docker compose up --build`

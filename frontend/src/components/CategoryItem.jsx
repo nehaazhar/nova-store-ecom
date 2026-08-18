@@ -1,24 +1,39 @@
 import { Link } from "react-router-dom";
+import { ArrowUpRight } from "lucide-react";
+import ProductImage from "./ProductImage";
 
 const CategoryItem = ({ category }) => {
+	const slug = category.slug || category.name;
+	const label = category.label || category.name;
+	const count = category.productCount;
+
 	return (
-		<div className='relative overflow-hidden h-96 w-full rounded-lg group'>
-			<Link to={"/category" + category.href}>
-				<div className='w-full h-full cursor-pointer'>
-					<div className='absolute inset-0 bg-gradient-to-b from-transparent to-gray-900 opacity-50 z-10' />
-					<img
-						src={category.imageUrl}
-						alt={category.name}
-						className='w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-110'
-						loading='lazy'
-					/>
-					<div className='absolute bottom-0 left-0 right-0 p-4 z-20'>
-						<h3 className='text-white text-2xl font-bold mb-2'>{category.name}</h3>
-						<p className='text-gray-200 text-sm'>Explore {category.name}</p>
-					</div>
+		<Link
+			to={`/category/${encodeURIComponent(slug)}`}
+			className="group relative block h-80 overflow-hidden rounded-[1.75rem] bg-nova-ink shadow-card sm:h-[22rem]"
+		>
+			<ProductImage
+				src={category.imageUrl || category.image}
+				alt={label}
+				className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-110"
+			/>
+			<div className="absolute inset-0 bg-gradient-to-t from-nova-ink via-nova-ink/45 to-transparent transition duration-500 group-hover:via-nova-ink/55" />
+			<div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-6">
+				<div>
+					<h3 className="font-display text-2xl font-bold text-white sm:text-3xl">
+						{label}
+					</h3>
+					<p className="mt-1 text-sm text-white/70">
+						{typeof count === "number"
+							? `${count} product${count === 1 ? "" : "s"}`
+							: `Explore ${label}`}
+					</p>
 				</div>
-			</Link>
-		</div>
+				<span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md ring-1 ring-white/20 transition group-hover:bg-nova-accent group-hover:ring-nova-accent">
+					<ArrowUpRight size={18} />
+				</span>
+			</div>
+		</Link>
 	);
 };
 
