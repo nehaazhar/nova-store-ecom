@@ -8,6 +8,8 @@ import {
   totalVariantStock,
 } from "../utils/variant.utils.js";
 import { buildCatalogDocs } from "../data/fashionCatalog.js";
+import {
+  buildCatalogMongoQuery,
   bumpCatalogCache,
   catalogCacheKey,
   catalogCacheVersionKey,
