@@ -28,20 +28,31 @@ const extractEmailAddress = (from) => {
 	return (match ? match[1] : from || "").trim();
 };
 
-const sendViaResend = async ({ from, to, subject, text, html }) => {
+const sendViaResend = async ({ to, subject, text, html }) => {
 	const key = envVal("RESEND_API_KEY");
 	if (!key) return null;
+	const from = envVal("RESEND_FROM") || "NOVA <beth.t@example.com>";
 	const res = await fetch("https://api.resend.com/emails", {
 		method: "POST",
 		headers: {
 			Authorization: `Bearer ${key}`,
 			"Content-Type": "application/json",
 		},
-		body: JSON.stringify({ from, to: [to], subject, html, text }),
+		body: JSON.stringify({
+			from,
+			to: [to],
+			subject,
+			html: html || `<p>${text || subject}</p>`,
+			text: text || subject,
+		}),
 	});
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		return { ok: false, error: data.message || data.error || `Resend HTTP ${res.status}` };
+		const msg =
+			data.message ||
+			(typeof data.error === "string" ? data.error : data.error?.message) ||
+			`Resend HTTP ${res.status}`;
+		return { ok: false, error: msg };
 	}
 	return { ok: true, mocked: false, via: "resend" };
 };
@@ -601,10 +612,12 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 
 	const httpsAttempts = [sendViaResend, sendViaSendGrid, sendViaBrevo, sendViaWebhook];
 	let lastHttpsError = "";
+	let triedHttps = false;
 	for (const sendHttps of httpsAttempts) {
 		try {
 			const result = await sendHttps(mail);
 			if (!result) continue;
+			triedHttps = true;
 			if (result.ok) {
 				console.log("[email] sent", { to, subject, via: result.via });
 				return result;
@@ -612,9 +625,20 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 			lastHttpsError = result.error || lastHttpsError;
 			console.error("[email] https provider failed", result.error);
 		} catch (error) {
+			triedHttps = true;
 			lastHttpsError = error.message;
 			console.error("[email] https provider error", error.message);
 		}
+	}
+
+	if (triedHttps && envVal("RESEND_API_KEY")) {
+		return {
+			ok: false,
+			mocked: false,
+			error:
+				lastHttpsError ||
+				"Resend rejected the email. Testing mode only delivers to your Resend signup email. Check Resend → Logs.",
+		};
 	}
 
 	if (!isSmtpConfigured()) {

@@ -361,7 +361,12 @@ export const sendSmtpTestEmail = async (req, res) => {
 			});
 		}
 
-		res.json({ ok: true, to, message: `Test email sent to ${to}` });
+		res.json({
+			ok: true,
+			to,
+			via: result.via || "unknown",
+			message: `Test email sent to ${to}. Check inbox and Spam. Resend Logs mein bhi dekho.`,
+		});
 	} catch (error) {
 		res.status(500).json({ message: error.message });
 	}
