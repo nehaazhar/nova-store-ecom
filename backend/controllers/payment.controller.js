@@ -10,6 +10,8 @@ import { sendOrderEmail } from "../utils/email.utils.js";
 import { saveCheckoutPayload, loadCheckoutPayload, deleteCheckoutPayload } from "../utils/checkoutPayload.utils.js";
 import {
 	createRazorpayOrder,
+	getRazorpayKeyId,
+	getRazorpaySecret,
 	isRazorpayConfigured,
 	verifyRazorpaySignature,
 } from "../utils/razorpay.utils.js";
@@ -19,7 +21,7 @@ export const getPaymentConfig = async (_req, res) => {
 	res.json({
 		configured: razorpay,
 		razorpay,
-		razorpayKeyId: razorpay ? String(process.env.RAZORPAY_KEY_ID || "").trim() : "",
+		razorpayKeyId: razorpay ? getRazorpayKeyId() : "",
 		currency: "inr",
 		gateway: razorpay ? "razorpay" : "none",
 	});
@@ -359,7 +361,7 @@ export const createRazorpayCheckout = async (req, res) => {
 		});
 
 		res.status(200).json({
-			keyId: process.env.RAZORPAY_KEY_ID.trim(),
+			keyId: getRazorpayKeyId(),
 			orderId: rzpOrder.id,
 			amount: totalAmount,
 			currency: "INR",
@@ -386,7 +388,7 @@ export const verifyRazorpayPayment = async (req, res) => {
 			orderId: razorpay_order_id,
 			paymentId: razorpay_payment_id,
 			signature: razorpay_signature,
-			secret: process.env.RAZORPAY_KEY_SECRET,
+			secret: getRazorpaySecret(),
 		});
 		if (!valid) {
 			return res.status(400).json({ message: "Invalid Razorpay signature" });

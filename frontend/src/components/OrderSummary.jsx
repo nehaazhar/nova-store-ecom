@@ -27,15 +27,22 @@ const OrderSummary = () => {
 	const [paying, setPaying] = useState(false);
 	const [config, setConfig] = useState({ gateway: "none", razorpay: false });
 	const [checking, setChecking] = useState(true);
+	const [apiDown, setApiDown] = useState(false);
 
 	useEffect(() => {
 		let cancelled = false;
 		const loadConfig = async () => {
 			try {
 				const res = await axios.get("/payments/config");
-				if (!cancelled) setConfig(res.data || { gateway: "none" });
+				if (!cancelled) {
+					setApiDown(false);
+					setConfig(res.data || { gateway: "none" });
+				}
 			} catch {
-				if (!cancelled) setConfig({ gateway: "none" });
+				if (!cancelled) {
+					setApiDown(true);
+					setConfig({ gateway: "none" });
+				}
 			} finally {
 				if (!cancelled) setChecking(false);
 			}
@@ -226,7 +233,13 @@ const OrderSummary = () => {
 						Razorpay test: UPI / card. Success card often 4111 1111 1111 1111
 					</p>
 				)}
-				{onlineGateway === "none" && !checking && (
+				{apiDown && !checking && (
+					<p className="text-center text-xs text-amber-600">
+						Backend API band hai (http://localhost:5000). Project root mein `npm run
+						dev` chalao, phir page refresh karo.
+					</p>
+				)}
+				{onlineGateway === "none" && !checking && !apiDown && (
 					<p className="text-center text-xs text-amber-600">
 						Razorpay keys nahi mili — Dummy ya Cash on Delivery use karo. Root .env mein
 						RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET add karke server restart karo.

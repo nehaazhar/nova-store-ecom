@@ -1,8 +1,17 @@
 import crypto from "crypto";
 
+const cleanEnv = (value) =>
+	String(value || "")
+		.trim()
+		.replace(/^['"]|['"]$/g, "")
+		.trim();
+
+export const getRazorpayKeyId = () => cleanEnv(process.env.RAZORPAY_KEY_ID);
+export const getRazorpaySecret = () => cleanEnv(process.env.RAZORPAY_KEY_SECRET);
+
 export const isRazorpayConfigured = () => {
-	const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
-	const secret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+	const keyId = getRazorpayKeyId();
+	const secret = getRazorpaySecret();
 	if (!keyId.startsWith("rzp_test_") && !keyId.startsWith("rzp_live_")) return false;
 	if (secret.length < 10) return false;
 	if (/dummy|placeholder|your_razorpay/i.test(keyId + secret)) return false;
@@ -10,8 +19,8 @@ export const isRazorpayConfigured = () => {
 };
 
 export const getRazorpayAuthHeader = () => {
-	const keyId = String(process.env.RAZORPAY_KEY_ID || "").trim();
-	const secret = String(process.env.RAZORPAY_KEY_SECRET || "").trim();
+	const keyId = getRazorpayKeyId();
+	const secret = getRazorpaySecret();
 	return `Basic ${Buffer.from(`${keyId}:${secret}`).toString("base64")}`;
 };
 
