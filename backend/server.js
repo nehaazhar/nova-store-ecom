@@ -18,7 +18,7 @@ import wishlistRoutes from "./routes/wishlist.route.js";
 import addressRoutes from "./routes/address.route.js";
 
 import { connectDB } from "./lib/db.js";
-import { isSmtpConfigured } from "./utils/email.utils.js";
+import { isSmtpConfigured, isHttpsEmailConfigured } from "./utils/email.utils.js";
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 import helmet from "helmet";
@@ -47,7 +47,11 @@ app.use(
 	})
 );
 app.get("/api/health", (req, res) => {
-	res.json({ ok: true, smtp: isSmtpConfigured() });
+	res.json({
+		ok: true,
+		smtp: isSmtpConfigured(),
+		emailHttps: isHttpsEmailConfigured(),
+	});
 });
 app.use("/api", apiLimiter);
 

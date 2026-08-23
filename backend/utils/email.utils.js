@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import Product from "../models/product.model.js";
+import User from "../models/user.model.js";
 
 const envVal = (key) =>
 	String(process.env[key] || "")
@@ -11,6 +12,110 @@ const smtpPass = () => envVal("SMTP_PASS").replace(/\s/g, "");
 
 export const isSmtpConfigured = () =>
 	Boolean(envVal("SMTP_HOST") && envVal("SMTP_USER") && smtpPass());
+
+export const isHttpsEmailConfigured = () =>
+	Boolean(
+		envVal("RESEND_API_KEY") ||
+			envVal("SENDGRID_API_KEY") ||
+			envVal("BREVO_API_KEY") ||
+			envVal("EMAIL_WEBHOOK_URL")
+	);
+
+export const isEmailConfigured = () => isHttpsEmailConfigured() || isSmtpConfigured();
+
+const extractEmailAddress = (from) => {
+	const match = String(from || "").match(/<([^>]+)>/);
+	return (match ? match[1] : from || "").trim();
+};
+
+const sendViaResend = async ({ from, to, subject, text, html }) => {
+	const key = envVal("RESEND_API_KEY");
+	if (!key) return null;
+	const res = await fetch("https://api.resend.com/emails", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${key}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({ from, to: [to], subject, html, text }),
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) {
+		return { ok: false, error: data.message || data.error || `Resend HTTP ${res.status}` };
+	}
+	return { ok: true, mocked: false, via: "resend" };
+};
+
+const sendViaSendGrid = async ({ from, to, subject, text, html }) => {
+	const key = envVal("SENDGRID_API_KEY");
+	if (!key) return null;
+	const fromEmail = extractEmailAddress(from);
+	const res = await fetch("https://api.sendgrid.com/v3/mail/send", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${key}`,
+			"Content-Type": "application/json",
+		},
+		body: JSON.stringify({
+			personalizations: [{ to: [{ email: to }] }],
+			from: { email: fromEmail, name: "NOVA" },
+			subject,
+			content: [
+				{ type: "text/plain", value: text || subject },
+				{ type: "text/html", value: html || `<p>${text || subject}</p>` },
+			],
+		}),
+	});
+	if (!res.ok) {
+		const errText = await res.text();
+		return { ok: false, error: errText || `SendGrid HTTP ${res.status}` };
+	}
+	return { ok: true, mocked: false, via: "sendgrid" };
+};
+
+const sendViaBrevo = async ({ from, to, subject, text, html }) => {
+	const key = envVal("BREVO_API_KEY");
+	if (!key) return null;
+	const fromEmail = extractEmailAddress(from);
+	const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+		method: "POST",
+		headers: {
+			"api-key": key,
+			"Content-Type": "application/json",
+			Accept: "application/json",
+		},
+		body: JSON.stringify({
+			sender: { name: "NOVA", email: fromEmail },
+			to: [{ email: to }],
+			subject,
+			htmlContent: html || `<p>${text || subject}</p>`,
+			textContent: text || subject,
+		}),
+	});
+	const data = await res.json().catch(() => ({}));
+	if (!res.ok) {
+		return {
+			ok: false,
+			error: data.message || data.error?.message || `Brevo HTTP ${res.status}`,
+		};
+	}
+	return { ok: true, mocked: false, via: "brevo" };
+};
+
+const sendViaWebhook = async ({ from, to, subject, text, html }) => {
+	const url = envVal("EMAIL_WEBHOOK_URL");
+	if (!url) return null;
+	const res = await fetch(url, {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ from, to, subject, text, html }),
+	});
+	if (!res.ok) {
+		const errText = await res.text();
+		return { ok: false, error: errText || `Webhook HTTP ${res.status}` };
+	}
+	return { ok: true, mocked: false, via: "webhook" };
+};
 
 const createSmtpTransport = (port) => {
 	const SMTP_HOST = envVal("SMTP_HOST");
@@ -65,6 +170,9 @@ const getTransporter = () => {
 
 const mailFrom = () => {
 	const user = envVal("SMTP_USER");
+	if (envVal("RESEND_API_KEY") && (!envVal("EMAIL_FROM") || /gmail\.com/i.test(envVal("EMAIL_FROM") + user))) {
+		return "NOVA <beth.t@example.com>";
+	}
 	const from = envVal("EMAIL_FROM") || user || "noreply@ecommerce.local";
 	if (user && !from.toLowerCase().includes(user.toLowerCase())) {
 		return `NOVA <${user}>`;
@@ -480,10 +588,43 @@ export const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
 export const sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
 	const mail = { from: mailFrom(), to, subject, text, html, attachments };
 
-	if (!isSmtpConfigured()) {
-		console.warn("[email] SMTP not configured — mail not sent", { to, subject });
+	if (!isEmailConfigured()) {
+		console.warn("[email] no email provider configured", { to, subject });
 		console.log("[email:dev]", { to, subject, text });
-		return { ok: false, mocked: true, error: "SMTP is not configured on this server" };
+		return {
+			ok: false,
+			mocked: true,
+			error:
+				"No email provider. Render blocks Gmail SMTP — add RESEND_API_KEY, SENDGRID_API_KEY, or BREVO_API_KEY.",
+		};
+	}
+
+	const httpsAttempts = [sendViaResend, sendViaSendGrid, sendViaBrevo, sendViaWebhook];
+	let lastHttpsError = "";
+	for (const sendHttps of httpsAttempts) {
+		try {
+			const result = await sendHttps(mail);
+			if (!result) continue;
+			if (result.ok) {
+				console.log("[email] sent", { to, subject, via: result.via });
+				return result;
+			}
+			lastHttpsError = result.error || lastHttpsError;
+			console.error("[email] https provider failed", result.error);
+		} catch (error) {
+			lastHttpsError = error.message;
+			console.error("[email] https provider error", error.message);
+		}
+	}
+
+	if (!isSmtpConfigured()) {
+		return {
+			ok: false,
+			mocked: false,
+			error:
+				lastHttpsError ||
+				"HTTPS email failed and SMTP is not set. Add RESEND_API_KEY (recommended on Render).",
+		};
 	}
 
 	const trySend = async (payload) => {
@@ -501,7 +642,7 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 				const info = await transport.sendMail(payload);
 				transporter = transport;
 				console.log("[email] sent", { to, subject, id: info.messageId, port });
-				return { ok: true, mocked: false };
+				return { ok: true, mocked: false, via: "smtp" };
 			} catch (error) {
 				lastError = error;
 				console.error("[email] send attempt failed", {
@@ -525,18 +666,34 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 				return await trySend({ ...mail, attachments: [] });
 			} catch (retryError) {
 				console.error("[email] send failed:", retryError.message);
-				return { ok: false, mocked: false, error: retryError.message };
+				return {
+					ok: false,
+					mocked: false,
+					error: `${retryError.message}. Render often blocks Gmail SMTP — use Resend/SendGrid/Brevo API key.`,
+				};
 			}
 		}
 		console.error("[email] send failed:", error.message);
-		return { ok: false, mocked: false, error: error.message };
+		return {
+			ok: false,
+			mocked: false,
+			error: `${error.message}. Render often blocks Gmail SMTP — use Resend/SendGrid/Brevo API key.`,
+		};
 	}
 };
 
 export const sendOrderEmail = async (order, event) => {
 	try {
-		const user = order.user;
-		const email = typeof user === "object" ? user.email : null;
+		let email = typeof order.user === "object" ? order.user.email : null;
+		let customerName = typeof order.user === "object" ? order.user.name : "there";
+		if (!email) {
+			const uid = order.user?._id || order.user;
+			if (uid) {
+				const account = await User.findById(uid).select("name email");
+				email = account?.email || null;
+				customerName = account?.name || customerName;
+			}
+		}
 		if (!email) {
 			console.warn("[email] skip order mail — no customer email on order", event);
 			return;
@@ -544,27 +701,11 @@ export const sendOrderEmail = async (order, event) => {
 
 		const orderId = order._id?.toString()?.slice(-8)?.toUpperCase() || "ORDER";
 		const total = Number(order.totalAmount || 0).toFixed(2);
-		const customerName = typeof user === "object" ? user.name : "there";
 		const addressLines = formatAddressLines(order.shippingAddress);
 		const clientUrl = (process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
 		const ordersUrl = `${clientUrl}/orders`;
 
-		const hydrated = await hydrateOrderProducts(order.products || []);
-		const attachments = [];
-		const productsForEmail = [];
-
-		for (let i = 0; i < hydrated.length; i++) {
-			const item = hydrated[i];
-			const attachment = await fetchImageAttachment(item.product?.imageUrl, i);
-			if (attachment) {
-				attachments.push(attachment);
-				productsForEmail.push({ ...item, cid: attachment.cid });
-				console.log(`[email] inline image ready: ${attachment.cid} (${attachment.content.length} bytes)`);
-			} else {
-				productsForEmail.push(item);
-				console.log(`[email] no image for product: ${item.product?.name || i}`);
-			}
-		}
+		const productsForEmail = await hydrateOrderProducts(order.products || []);
 
 		const subjects = {
 			placed: `Order confirmed #${orderId}`,
@@ -628,7 +769,7 @@ Thank you for shopping with us.`;
 			ordersUrl,
 		});
 
-		const result = await sendEmail({ to: email, subject, text, html, attachments });
+		const result = await sendEmail({ to: email, subject, text, html });
 		if (!result.ok) {
 			console.error("[email] order mail not delivered", { to: email, event, error: result.error });
 		}

@@ -1,7 +1,7 @@
 import Order, { ORDER_STATUSES, ORDER_STATUS_FLOW } from "../models/order.model.js";
 import User from "../models/user.model.js";
 import { restoreStockForProducts } from "../utils/inventory.utils.js";
-import { sendOrderEmail, sendEmail, isSmtpConfigured } from "../utils/email.utils.js";
+import { sendOrderEmail, sendEmail, isEmailConfigured } from "../utils/email.utils.js";
 import { normalizeAddress } from "../controllers/address.controller.js";
 import { refundPaidOrder } from "../utils/refund.utils.js";
 
@@ -339,10 +339,10 @@ export const resolveReturn = async (req, res) => {
 
 export const sendSmtpTestEmail = async (req, res) => {
 	try {
-		if (!isSmtpConfigured()) {
+		if (!isEmailConfigured()) {
 			return res.status(500).json({
 				message:
-					"SMTP env vars missing on this server. Set SMTP_HOST, SMTP_USER, SMTP_PASS on Render and restart.",
+					"Gmail SMTP Render pe usually block hota hai. Render Environment mein RESEND_API_KEY (https://resend.com) add karke redeploy karo.",
 			});
 		}
 
