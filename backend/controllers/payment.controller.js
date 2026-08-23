@@ -412,6 +412,14 @@ export const createRazorpayCheckout = async (req, res) => {
 			return res.status(400).json({ error: "Razorpay requires a minimum of ₹1" });
 		}
 
+		const rupees = totalAmount / 100;
+		const razorpayTestMaxRupees = 100000;
+		if (getRazorpayKeyId().startsWith("rzp_test_") && rupees > razorpayTestMaxRupees) {
+			return res.status(400).json({
+				error: `Razorpay test mode max is about ₹${razorpayTestMaxRupees.toLocaleString("en-IN")}. Cart total is ₹${rupees.toLocaleString("en-IN")}. Sasta product try karo, ya Cash on Delivery use karo.`,
+			});
+		}
+
 		const rzpOrder = await createRazorpayOrder({
 			amountPaise: totalAmount,
 			receipt: `rcpt_${Date.now()}`.slice(0, 40),

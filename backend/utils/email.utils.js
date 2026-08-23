@@ -54,7 +54,7 @@ const sendViaResend = async ({ to, subject, text, html }) => {
 			`Resend HTTP ${res.status}`;
 		return { ok: false, error: msg };
 	}
-	return { ok: true, mocked: false, via: "resend" };
+	return { ok: true, mocked: false, via: "resend", id: data.id || "" };
 };
 
 const sendViaSendGrid = async ({ from, to, subject, text, html }) => {
@@ -631,13 +631,17 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 		}
 	}
 
-	if (triedHttps && envVal("RESEND_API_KEY")) {
+	if (
+		triedHttps && envVal("RESEND_API_KEY") ||
+		process.env.RENDER ||
+		process.env.NODE_ENV === "production"
+	) {
 		return {
 			ok: false,
 			mocked: false,
 			error:
 				lastHttpsError ||
-				"Resend rejected the email. Testing mode only delivers to your Resend signup email. Check Resend → Logs.",
+				"Email not sent. On Render use Resend (HTTPS). Gmail SMTP is blocked (ENETUNREACH/timeout). Check Resend → Logs. Testing mode only sends to your Resend signup email (e.g. nehaazhar9@gmail.com), not a similar address.",
 		};
 	}
 
