@@ -16,6 +16,7 @@ import {
 import toast from "react-hot-toast";
 import axios from "../lib/axios";
 import ProductImage from "../components/ProductImage";
+import ProductImageZoom from "../components/ProductImageZoom";
 import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 import { useWishlistStore } from "../stores/useWishlistStore";
@@ -289,44 +290,45 @@ const ProductDetailPage = () => {
 				</Link>
 
 				<motion.div
-					className="nova-card grid gap-8 p-4 sm:p-6 lg:grid-cols-2"
+					className="nova-card grid gap-8 overflow-visible p-4 sm:p-6 lg:grid-cols-2"
 					initial={{ opacity: 0, y: 16 }}
 					animate={{ opacity: 1, y: 0 }}
 				>
 					<div>
-						<div className="relative aspect-square overflow-hidden rounded-2xl border border-nova-line bg-slate-50">
-							<ProductImage
-								src={activeImage}
-								alt={product.name}
-								className="h-full w-full object-cover"
-							/>
+						<ProductImageZoom
+							src={activeImage}
+							alt={product.name}
+							onOpen={(src) => setLightbox(src)}
+						>
 							{images.length > 1 && (
 								<>
 									<button
 										type="button"
-										onClick={() =>
+										onClick={(e) => {
+											e.stopPropagation();
 											setActiveIndex((prev) =>
 												prev === 0 ? images.length - 1 : prev - 1
-											)
-										}
-										className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/95 p-2 text-nova-ink shadow-md ring-1 ring-black/5 hover:bg-white"
+											);
+										}}
+										className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-2 text-nova-ink shadow-md ring-1 ring-black/5 hover:bg-white"
 									>
 										<ChevronLeft size={20} />
 									</button>
 									<button
 										type="button"
-										onClick={() =>
+										onClick={(e) => {
+											e.stopPropagation();
 											setActiveIndex((prev) =>
 												prev === images.length - 1 ? 0 : prev + 1
-											)
-										}
-										className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/95 p-2 text-nova-ink shadow-md ring-1 ring-black/5 hover:bg-white"
+											);
+										}}
+										className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-white/95 p-2 text-nova-ink shadow-md ring-1 ring-black/5 hover:bg-white"
 									>
 										<ChevronRight size={20} />
 									</button>
 								</>
 							)}
-						</div>
+						</ProductImageZoom>
 
 						{images.length > 1 && (
 							<div className="mt-3 grid grid-cols-4 sm:grid-cols-6 gap-2">
@@ -662,7 +664,7 @@ const ProductDetailPage = () => {
 				>
 					<img
 						src={lightbox}
-						alt="Review full size"
+						alt="Zoomed product"
 						className="max-h-[90vh] max-w-[90vw] object-contain rounded-lg"
 					/>
 				</button>
