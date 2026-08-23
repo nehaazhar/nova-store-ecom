@@ -2,6 +2,7 @@ import crypto from "crypto";
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
+import User from "../models/user.model.js";
 import { isCouponApplicable } from "../utils/coupon.utils.js";
 import { recordCouponUsage } from "./coupon.controller.js";
 import { reserveStockForProducts, getVariantStock } from "../utils/inventory.utils.js";
@@ -249,6 +250,79 @@ const placeLocalOrder = async ({
 	return newOrder;
 };
 
+const clientOrigin = () =>
+	String(process.env.CLIENT_URL || "http://localhost:5173").replace(/\/$/, "");
+
+const completeRazorpayPayment = async ({
+	razorpay_order_id,
+	razorpay_payment_id,
+	razorpay_signature,
+}) => {
+	if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+		return { ok: false, status: 400, message: "Missing Razorpay payment fields" };
+	}
+
+	const valid = verifyRazorpaySignature({
+		orderId: razorpay_order_id,
+		paymentId: razorpay_payment_id,
+		signature: razorpay_signature,
+		secret: getRazorpaySecret(),
+	});
+	if (!valid) {
+		return { ok: false, status: 400, message: "Invalid Razorpay signature" };
+	}
+
+	const existing = await Order.findOne({ stripeSessionId: `RZP-${razorpay_order_id}` });
+	if (existing) {
+		return { ok: true, already: true, order: existing };
+	}
+
+	const cart = await loadCheckoutPayload(razorpay_order_id);
+	if (!cart?.products?.length) {
+		return { ok: false, status: 400, message: "Checkout session expired. Please try again." };
+	}
+
+	const user = await User.findById(cart.userId);
+	if (!user) {
+		return { ok: false, status: 400, message: "User not found for this checkout" };
+	}
+
+	const stockResult = await reserveStockForProducts(cart.products);
+	if (!stockResult.ok) {
+		return { ok: false, status: 400, message: stockResult.message };
+	}
+
+	let coupon = null;
+	if (cart.couponCode) {
+		coupon = await Coupon.findOne({ code: cart.couponCode, isActive: true });
+	}
+
+	const lineItems = cart.products.map((p) => ({
+		productId: p.id,
+		quantity: p.quantity,
+		price: p.price,
+		size: p.size || "",
+		color: p.color || "",
+		style: p.style || "",
+	}));
+
+	const newOrder = await placeLocalOrder({
+		user,
+		lineItems,
+		totalAmount: cart.totalAmount,
+		address: cart.shippingAddress,
+		coupon,
+		paymentMethod: "razorpay",
+		stripeSessionId: `RZP-${razorpay_order_id}`,
+		razorpayOrderId: razorpay_order_id,
+		razorpayPaymentId: razorpay_payment_id,
+		statusNote: "Paid via Razorpay",
+	});
+
+	await deleteCheckoutPayload(razorpay_order_id);
+	return { ok: true, already: false, order: newOrder };
+};
+
 export const cashOnDeliveryCheckout = async (req, res) => {
 	try {
 		const { products, couponCode, shippingAddress, shippingAddressId } = req.body;
@@ -379,75 +453,17 @@ export const createRazorpayCheckout = async (req, res) => {
 
 export const verifyRazorpayPayment = async (req, res) => {
 	try {
-		const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-		if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-			return res.status(400).json({ message: "Missing Razorpay payment fields" });
+		const result = await completeRazorpayPayment(req.body || {});
+		if (!result.ok) {
+			return res.status(result.status || 400).json({ message: result.message });
 		}
-
-		const valid = verifyRazorpaySignature({
-			orderId: razorpay_order_id,
-			paymentId: razorpay_payment_id,
-			signature: razorpay_signature,
-			secret: getRazorpaySecret(),
-		});
-		if (!valid) {
-			return res.status(400).json({ message: "Invalid Razorpay signature" });
-		}
-
-		const existing = await Order.findOne({ stripeSessionId: `RZP-${razorpay_order_id}` });
-		if (existing) {
-			return res.status(200).json({
-				success: true,
-				already: true,
-				orderId: existing._id,
-				status: existing.status,
-			});
-		}
-
-		const cart = await loadCheckoutPayload(razorpay_order_id);
-		if (!cart?.products?.length) {
-			return res.status(400).json({ message: "Checkout session expired. Please try again." });
-		}
-
-		const stockResult = await reserveStockForProducts(cart.products);
-		if (!stockResult.ok) {
-			return res.status(400).json({ error: stockResult.message });
-		}
-
-		let coupon = null;
-		if (cart.couponCode) {
-			coupon = await Coupon.findOne({ code: cart.couponCode, isActive: true });
-		}
-
-		const lineItems = cart.products.map((p) => ({
-			productId: p.id,
-			quantity: p.quantity,
-			price: p.price,
-			size: p.size || "",
-			color: p.color || "",
-			style: p.style || "",
-		}));
-
-		const newOrder = await placeLocalOrder({
-			user: req.user,
-			lineItems,
-			totalAmount: cart.totalAmount,
-			address: cart.shippingAddress,
-			coupon,
-			paymentMethod: "razorpay",
-			stripeSessionId: `RZP-${razorpay_order_id}`,
-			razorpayOrderId: razorpay_order_id,
-			razorpayPaymentId: razorpay_payment_id,
-			statusNote: "Paid via Razorpay",
-		});
-
-		await deleteCheckoutPayload(razorpay_order_id);
 
 		res.status(200).json({
 			success: true,
-			orderId: newOrder._id,
-			totalAmount: newOrder.totalAmount,
-			status: newOrder.status,
+			already: result.already || false,
+			orderId: result.order._id,
+			totalAmount: result.order.totalAmount,
+			status: result.order.status,
 			paymentMethod: "razorpay",
 		});
 	} catch (error) {
@@ -456,6 +472,22 @@ export const verifyRazorpayPayment = async (req, res) => {
 			message: "Error verifying Razorpay payment",
 			error: error.message,
 		});
+	}
+};
+
+export const razorpayPaymentCallback = async (req, res) => {
+	const payload = { ...req.query, ...req.body };
+	try {
+		const result = await completeRazorpayPayment(payload);
+		if (!result.ok) {
+			return res.redirect(
+				`${clientOrigin()}/purchase-cancel?reason=${encodeURIComponent(result.message || "Payment failed")}`
+			);
+		}
+		return res.redirect(`${clientOrigin()}/purchase-success?orderId=${result.order._id}`);
+	} catch (error) {
+		console.error("Razorpay callback error:", error);
+		return res.redirect(`${clientOrigin()}/purchase-cancel?reason=callback_error`);
 	}
 };
 

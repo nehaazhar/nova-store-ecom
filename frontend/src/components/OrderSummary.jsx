@@ -53,6 +53,10 @@ const OrderSummary = () => {
 		};
 	}, []);
 
+	const isLiveHost =
+		typeof window !== "undefined" &&
+		!/localhost|127\.0\.0\.1/.test(window.location.hostname);
+
 	const savings = subtotal - total;
 	const formattedSubtotal = subtotal.toFixed(2);
 	const formattedTotal = total.toFixed(2);
@@ -99,6 +103,8 @@ const OrderSummary = () => {
 		const orderRes = await axios.post("/payments/razorpay/order", checkoutPayload());
 		const { keyId, orderId, amount, currency, name, prefill } = orderRes.data;
 
+		const callbackUrl = `${window.location.origin}/api/payments/razorpay/callback`;
+
 		await new Promise((resolve, reject) => {
 			const rzp = new window.Razorpay({
 				key: keyId,
@@ -109,10 +115,12 @@ const OrderSummary = () => {
 				order_id: orderId,
 				prefill,
 				theme: { color: "#0f766e" },
+				callback_url: callbackUrl,
+				redirect: true,
 				handler: async (response) => {
 					try {
 						const verify = await axios.post("/payments/razorpay/verify", response);
-						window.location.href = `/purchase-success?mock=true&orderId=${verify.data.orderId}`;
+						window.location.href = `/purchase-success?orderId=${verify.data.orderId}`;
 						resolve();
 					} catch (error) {
 						reject(error);
@@ -230,7 +238,9 @@ const OrderSummary = () => {
 
 				{onlineGateway === "razorpay" && (
 					<p className="text-center text-xs text-nova-muted">
-						Razorpay test: UPI / card. Success card often 4111 1111 1111 1111
+						Razorpay test card: 4111 1111 1111 1111 (16 digits). OTP window blank ho to
+						us tab ko band karke NOVA wale tab pe wapas aao, ya UPI mein success@razorpay
+						try karo.
 					</p>
 				)}
 				{apiDown && !checking && (
@@ -241,8 +251,9 @@ const OrderSummary = () => {
 				)}
 				{onlineGateway === "none" && !checking && !apiDown && (
 					<p className="text-center text-xs text-amber-600">
-						Razorpay keys nahi mili — Dummy ya Cash on Delivery use karo. Root .env mein
-						RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET add karke server restart karo.
+						{isLiveHost
+							? "Razorpay Render pe configure nahi hai. Dashboard → Environment mein RAZORPAY_KEY_ID aur RAZORPAY_KEY_SECRET add karke service restart karo (local .env live site pe nahi jata)."
+							: "Razorpay keys nahi mili — Dummy ya Cash on Delivery use karo. Root .env mein RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET add karke server restart karo."}
 					</p>
 				)}
 
