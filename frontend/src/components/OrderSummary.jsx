@@ -238,9 +238,8 @@ const OrderSummary = () => {
 
 				{onlineGateway === "razorpay" && (
 					<p className="text-center text-xs text-nova-muted">
-						Razorpay test card: 4111 1111 1111 1111 (16 digits). OTP window blank ho to
-						us tab ko band karke NOVA wale tab pe wapas aao, ya UPI mein success@razorpay
-						try karo.
+						India test card (16 digits): 5267 3181 8797 5449 · expiry 12/29 · CVV 123.
+						4111 wala Visa international treat hota hai. UPI: success@razorpay
 					</p>
 				)}
 				{apiDown && !checking && (

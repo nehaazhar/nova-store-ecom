@@ -1,25 +1,33 @@
 import nodemailer from "nodemailer";
 import Product from "../models/product.model.js";
 
-export const isSmtpConfigured = () => {
-	const { SMTP_HOST, SMTP_USER, SMTP_PASS } = process.env;
-	return Boolean(SMTP_HOST && SMTP_USER && SMTP_PASS);
-};
+const envVal = (key) =>
+	String(process.env[key] || "")
+		.trim()
+		.replace(/^['"]|['"]$/g, "")
+		.trim();
+
+export const isSmtpConfigured = () =>
+	Boolean(envVal("SMTP_HOST") && envVal("SMTP_USER") && envVal("SMTP_PASS"));
 
 let transporter = null;
 
 const getTransporter = () => {
 	if (transporter) return transporter;
 
-	const { SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS } = process.env;
+	const SMTP_HOST = envVal("SMTP_HOST");
+	const SMTP_USER = envVal("SMTP_USER");
+	const SMTP_PASS = envVal("SMTP_PASS");
+	const SMTP_PORT = Number(envVal("SMTP_PORT") || 587);
+
 	if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
 		return null;
 	}
 
 	transporter = nodemailer.createTransport({
 		host: SMTP_HOST,
-		port: Number(SMTP_PORT || 587),
-		secure: Number(SMTP_PORT) === 465,
+		port: SMTP_PORT,
+		secure: SMTP_PORT === 465,
 		auth: {
 			user: SMTP_USER,
 			pass: SMTP_PASS,
@@ -60,6 +68,15 @@ const EVENT_META = {
 		badgeText: "#047857",
 		message: (id, total) =>
 			`We've received your order <strong>#${id}</strong>. Total paid: <strong>₹${total}</strong>. We'll notify you when it ships.`,
+	},
+	processing: {
+		eyebrow: "Being packed",
+		title: "Your order is being processed",
+		accent: "#0f766e",
+		badgeBg: "#f0fdfa",
+		badgeText: "#0f766e",
+		message: (id) =>
+			`We're preparing order <strong>#${id}</strong>. We'll email you again when it ships.`,
 	},
 	shipped: {
 		eyebrow: "On the way",
@@ -431,17 +448,13 @@ export const sendEmail = async ({ to, subject, text, html, attachments = [] }) =
 
 	const transport = getTransporter();
 	if (!transport) {
-		console.log("[email:dev]", {
-			to,
-			subject,
-			text,
-			attachments: attachments.map((a) => a.filename),
-			htmlHasImages: /<img[\s\S]*src=/.test(html || ""),
-		});
-		return { ok: true, mocked: true };
+		console.warn("[email] SMTP not configured — mail not sent", { to, subject });
+		console.log("[email:dev]", { to, subject, text });
+		return { ok: false, mocked: true };
 	}
 
-	await transport.sendMail(mail);
+	const info = await transport.sendMail(mail);
+	console.log("[email] sent", { to, subject, id: info.messageId });
 	return { ok: true, mocked: false };
 };
 
@@ -449,7 +462,10 @@ export const sendOrderEmail = async (order, event) => {
 	try {
 		const user = order.user;
 		const email = typeof user === "object" ? user.email : null;
-		if (!email) return;
+		if (!email) {
+			console.warn("[email] skip order mail — no customer email on order", event);
+			return;
+		}
 
 		const orderId = order._id?.toString()?.slice(-8)?.toUpperCase() || "ORDER";
 		const total = Number(order.totalAmount || 0).toFixed(2);
@@ -482,6 +498,7 @@ export const sendOrderEmail = async (order, event) => {
 
 		const subjects = {
 			placed: `Order confirmed #${orderId}`,
+			processing: `Order processing #${orderId}`,
 			shipped: `Order shipped #${orderId}`,
 			delivered: `Order delivered #${orderId}`,
 			cancelled: `Order cancelled #${orderId}`,
@@ -492,6 +509,7 @@ export const sendOrderEmail = async (order, event) => {
 
 		const plainMessages = {
 			placed: `Your order #${orderId} has been placed successfully. Total: ₹${total}`,
+			processing: `Your order #${orderId} is being processed.`,
 			shipped: `Good news! Your order #${orderId} is on the way.`,
 			delivered: `Your order #${orderId} has been delivered. Enjoy your purchase!`,
 			cancelled: `Your order #${orderId} has been cancelled. If payment was taken, refund will be processed as per policy.`,
@@ -542,6 +560,6 @@ Thank you for shopping with us.`;
 
 		await sendEmail({ to: email, subject, text, html, attachments });
 	} catch (error) {
-		console.log("sendOrderEmail failed:", error.message);
+		console.error("sendOrderEmail failed:", error.message);
 	}
 };

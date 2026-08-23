@@ -183,7 +183,7 @@ export const updateOrderStatus = async (req, res) => {
 		await order.save();
 
 		const populated = await populateOrder(Order.findById(order._id));
-		if (["shipped", "delivered", "cancelled"].includes(status)) {
+		if (["processing", "shipped", "delivered", "cancelled"].includes(status)) {
 			await sendOrderEmail(populated, status);
 		}
 
