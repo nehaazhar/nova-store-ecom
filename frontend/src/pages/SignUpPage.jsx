@@ -18,7 +18,7 @@ const SignUpPage = () => {
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		const ok = await signup(formData);
-		if (ok) navigate("/login");
+		if (ok) navigate("/");
 	};
 
 	return (

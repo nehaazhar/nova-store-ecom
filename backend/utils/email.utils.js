@@ -28,10 +28,20 @@ const extractEmailAddress = (from) => {
 	return (match ? match[1] : from || "").trim();
 };
 
+const isUnverifiedFrom = (value = "") =>
+	/example\.com|ecommerce\.local|gmail\.com|yahoo\.com|outlook\.com/i.test(value);
+
+const resendFromAddress = () => {
+	const custom = envVal("RESEND_FROM");
+	if (custom && !isUnverifiedFrom(custom)) return custom;
+	return "NOVA Store <beth.t@example.com>";
+};
+
 const sendViaResend = async ({ to, subject, text, html }) => {
 	const key = envVal("RESEND_API_KEY");
 	if (!key) return null;
-	const from = envVal("RESEND_FROM") || "NOVA <beth.t@example.com>";
+	const from = resendFromAddress();
+	console.log("[email] resend attempt", { from, to });
 	const res = await fetch("https://api.resend.com/emails", {
 		method: "POST",
 		headers: {
@@ -180,10 +190,8 @@ const getTransporter = () => {
 };
 
 const mailFrom = () => {
+	if (envVal("RESEND_API_KEY")) return resendFromAddress();
 	const user = envVal("SMTP_USER");
-	if (envVal("RESEND_API_KEY") && (!envVal("EMAIL_FROM") || /gmail\.com/i.test(envVal("EMAIL_FROM") + user))) {
-		return "NOVA <beth.t@example.com>";
-	}
 	const from = envVal("EMAIL_FROM") || user || "noreply@ecommerce.local";
 	if (user && !from.toLowerCase().includes(user.toLowerCase())) {
 		return `NOVA <${user}>`;

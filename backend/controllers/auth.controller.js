@@ -85,26 +85,11 @@ export const signup = async (req, res) => {
 		name,
 		email,
 		password,
-		isEmailVerified: !isSmtpConfigured(),
+		isEmailVerified: true,
 	});
-	const token = createRandomToken();
-	user.emailVerifyTokenHash = hashToken(token);
-	user.emailVerifyExpires = new Date(Date.now() + VERIFY_EXPIRES_MS);
 	await user.save();
-
-	if (isSmtpConfigured()) {
-		const verifyUrl = `${clientUrl()}/verify-email?token=${token}`;
-		await sendVerificationEmail({ to: email, name, verifyUrl });
-		return res.status(201).json({
-			message: "Account created. Check your email to verify before logging in.",
-			email,
-		});
-	}
-
-	res.status(201).json({
-		message: "Account created. You can log in now.",
-		email,
-	});
+	await issueSession(res, user);
+	res.status(201).json(toPublicUser(user));
 };
 
 export const login = async (req, res) => {
@@ -114,12 +99,6 @@ export const login = async (req, res) => {
 
 	if (!user || !(await user.comparePassword(password))) {
 		throw new HttpError(400, "Invalid email or password");
-	}
-
-	if (user.isEmailVerified === false && isSmtpConfigured()) {
-		const err = new HttpError(403, "Please verify your email before logging in");
-		err.code = "EMAIL_NOT_VERIFIED";
-		throw err;
 	}
 
 	await issueSession(res, user);
