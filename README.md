@@ -24,9 +24,11 @@ npm run dev --prefix frontend
 If SMTP is not set, signup verify / password-reset links print in the backend terminal.
 
 ```bash
-npm run seed:products
+npm run seed:products:api
 npm test
 ```
+
+`seed:products:api` loads real DummyJSON fashion products (photos, names, prices) plus size/color stock. Use `npm run seed:products` only for the offline Unsplash demo catalog.
 
 ## Docker
 

@@ -8,6 +8,7 @@ import {
   totalVariantStock,
 } from "../utils/variant.utils.js";
 import { buildCatalogDocs } from "../data/fashionCatalog.js";
+import { fetchRealCatalogDocs } from "../data/realCatalog.js";
 import {
   buildCatalogMongoQuery,
   bumpCatalogCache,
@@ -567,14 +568,24 @@ export const toggleFeaturedProduct = async (req, res) => {
 
 export const seedFullCatalog = async (req, res) => {
   try {
+    let docs = [];
+    let source = "demo";
+    try {
+      docs = await fetchRealCatalogDocs();
+      if (docs.length) source = "dummyjson";
+    } catch (error) {
+      console.log("Real catalog fetch failed, using local demo catalog:", error.message);
+    }
+    if (!docs.length) docs = buildCatalogDocs();
+
     await Product.deleteMany({});
-    const docs = buildCatalogDocs();
     const products = await Product.insertMany(docs);
     await updateFeaturedProductsCache();
     await bumpCatalogCache(redis);
     res.json({
-      message: `Loaded ${products.length} products with categories, colors, sizes, and stock`,
+      message: `Loaded ${products.length} products (${source}) with categories, colors, sizes, and stock`,
       count: products.length,
+      source,
     });
   } catch (error) {
     console.log("Error in seedFullCatalog", error.message);

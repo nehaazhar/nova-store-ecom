@@ -64,7 +64,7 @@ const ProductsList = ({ onEdit }) => {
 						onClick={() => {
 							if (
 								window.confirm(
-									"This replaces all products with a full catalog (categories, colors, sizes, stock). Continue?"
+									"This replaces all products with a real DummyJSON catalog (photos, categories, sizes, colors). Continue?"
 								)
 							) {
 								seedFullCatalog();
