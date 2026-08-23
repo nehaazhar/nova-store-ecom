@@ -25,7 +25,11 @@ import {
 	availableSizes,
 	availableStyles,
 	getVariantStock,
+	inStockColors,
+	inStockSizes,
+	inStockStyles,
 } from "../utils/variant.utils";
+import { getRatingStyle } from "../utils/rating.utils";
 
 const MAX_REVIEW_IMAGES = 5;
 
@@ -142,6 +146,8 @@ const ProductDetailPage = () => {
 	const liked = isInWishlist(product._id);
 	const myReview = reviews.find((r) => sameId(r.user?._id, user?._id));
 	const isAdding = addingToCart && addingProductId === product._id;
+	const productRatingStyle = getRatingStyle(product.averageRating);
+	const formRatingStyle = getRatingStyle(rating);
 
 	const sizeOptions = product.sizes || [];
 	const colorOptions = product.colors || [];
@@ -363,8 +369,8 @@ const ProductDetailPage = () => {
 						</h1>
 
 						<div className="flex items-center gap-3 mb-3 text-sm text-nova-muted">
-							<span className="inline-flex items-center gap-1">
-								<Star size={16} className="text-yellow-400 fill-yellow-400" />
+							<span className={`inline-flex items-center gap-1 ${productRatingStyle.text}`}>
+								<Star size={16} className={productRatingStyle.star} />
 								{Number(product.averageRating || 0).toFixed(1)} ({product.numReviews || 0}{" "}
 								reviews)
 							</span>
@@ -517,7 +523,7 @@ const ProductDetailPage = () => {
 								<select
 									value={rating}
 									onChange={(e) => setRating(Number(e.target.value))}
-									className="bg-nova-bg border border-nova-line rounded-md px-3 py-2 text-sm text-nova-ink"
+									className={`bg-nova-bg border border-nova-line rounded-md px-3 py-2 text-sm font-semibold ${formRatingStyle.text}`}
 								>
 									{[5, 4, 3, 2, 1].map((n) => (
 										<option key={n} value={n}>
@@ -611,7 +617,7 @@ const ProductDetailPage = () => {
 											<p className="font-medium text-nova-ink">
 												{review.user?.name || "User"}
 											</p>
-											<p className="text-xs text-yellow-400 mt-1">
+											<p className={`text-xs mt-1 ${getRatingStyle(review.rating).text}`}>
 												{"★".repeat(review.rating)}
 												{"☆".repeat(5 - review.rating)}
 											</p>

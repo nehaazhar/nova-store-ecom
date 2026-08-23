@@ -5,6 +5,7 @@ import { useUserStore } from "../stores/useUserStore";
 import { useCartStore } from "../stores/useCartStore";
 import { useWishlistStore } from "../stores/useWishlistStore";
 import ProductImage from "./ProductImage";
+import { getRatingStyle } from "../utils/rating.utils";
 
 const ProductCard = ({ product }) => {
 	const { user } = useUserStore();
@@ -18,6 +19,7 @@ const ProductCard = ({ product }) => {
 		(product.colors?.length || 0) > 0 ||
 		(product.styles?.length || 0) > 0;
 	const isAdding = addingToCart && addingProductId === product._id;
+	const ratingStyle = getRatingStyle(product.averageRating);
 
 	const handleAddToCart = async (e) => {
 		e.preventDefault();
@@ -114,8 +116,10 @@ const ProductCard = ({ product }) => {
 					{product.name}
 				</h5>
 				<div className="mt-2 flex items-center gap-2 text-xs text-nova-muted">
-					<span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-amber-700 ring-1 ring-amber-100">
-						<Star size={11} className="fill-amber-400 text-amber-400" />
+					<span
+						className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${ratingStyle.badge}`}
+					>
+						<Star size={11} className={ratingStyle.star} />
 						{Number(product.averageRating || 0).toFixed(1)}
 					</span>
 					<span>({product.numReviews || 0})</span>
