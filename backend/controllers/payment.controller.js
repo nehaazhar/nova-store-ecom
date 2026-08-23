@@ -2,13 +2,11 @@ import crypto from "crypto";
 import Coupon from "../models/coupon.model.js";
 import Order from "../models/order.model.js";
 import Product from "../models/product.model.js";
-import { getStripe, getStripeCurrency, isStripeConfigured } from "../lib/stripe.js";
 import { isCouponApplicable } from "../utils/coupon.utils.js";
 import { recordCouponUsage } from "./coupon.controller.js";
 import { reserveStockForProducts, getVariantStock } from "../utils/inventory.utils.js";
 import { resolveShippingAddress } from "./order.controller.js";
 import { sendOrderEmail } from "../utils/email.utils.js";
-import { fulfillPaidCheckoutSession } from "../utils/orderFulfillment.utils.js";
 import { saveCheckoutPayload, loadCheckoutPayload, deleteCheckoutPayload } from "../utils/checkoutPayload.utils.js";
 import {
 	createRazorpayOrder,
@@ -18,15 +16,12 @@ import {
 
 export const getPaymentConfig = async (_req, res) => {
 	const razorpay = isRazorpayConfigured();
-	const stripe = isStripeConfigured();
 	res.json({
-		configured: stripe,
-		stripe,
+		configured: razorpay,
 		razorpay,
-		publishableKey: stripe ? String(process.env.STRIPE_PUBLISHABLE_KEY || "").trim() : "",
 		razorpayKeyId: razorpay ? String(process.env.RAZORPAY_KEY_ID || "").trim() : "",
-		currency: razorpay ? "inr" : getStripeCurrency(),
-		gateway: razorpay ? "razorpay" : stripe ? "stripe" : "none",
+		currency: "inr",
+		gateway: razorpay ? "razorpay" : "none",
 	});
 };
 
@@ -60,152 +55,6 @@ const populateNewOrder = async (orderId) =>
 	Order.findById(orderId)
 		.populate("user", "name email")
 		.populate("products.product", "name category price images image");
-
-export const createCheckoutSession = async (req, res) => {
-	try {
-		const { products, couponCode, shippingAddress, shippingAddressId } = req.body;
-
-		if (!Array.isArray(products) || products.length === 0) {
-			return res.status(400).json({ error: "Invalid or empty products array" });
-		}
-
-		const stripe = getStripe();
-		if (!stripe) {
-			return res.status(500).json({
-				error:
-					"Stripe is not configured. Add a real STRIPE_SECRET_KEY (sk_test_...) from https://dashboard.stripe.com/test/apikeys to the root .env file and restart the server.",
-			});
-		}
-
-		if (!process.env.CLIENT_URL) {
-			return res.status(500).json({ error: "CLIENT_URL is not configured" });
-		}
-
-		const addressResult = await resolveShippingAddress({
-			userId: req.user._id,
-			shippingAddress,
-			shippingAddressId,
-		});
-		if (!addressResult.ok) {
-			return res.status(400).json({ error: addressResult.message });
-		}
-
-		const stockCheck = await validateStockAvailability(products);
-		if (!stockCheck.ok) {
-			return res.status(400).json({ error: stockCheck.message });
-		}
-
-		const currency = getStripeCurrency();
-		let totalAmount = 0;
-
-		const lineItems = products.map((product) => {
-			const amount = Math.round(Number(product.price) * 100);
-			if (!Number.isFinite(amount) || amount < 1) {
-				throw new Error(`Invalid price for "${product.name || "product"}"`);
-			}
-			totalAmount += amount * (product.quantity || 1);
-
-			const productData = {
-				name: product.name || "Product",
-			};
-
-			const imageUrl = product.images?.[0] || product.image;
-			if (typeof imageUrl === "string" && imageUrl.startsWith("https://")) {
-				productData.images = [imageUrl];
-			}
-
-			return {
-				price_data: {
-					currency,
-					product_data: productData,
-					unit_amount: amount,
-				},
-				quantity: product.quantity || 1,
-			};
-		});
-
-		const minCharge = 50;
-		if (totalAmount < minCharge) {
-			return res.status(400).json({
-				error: `Stripe requires a minimum of ${minCharge / 100} ${currency.toUpperCase()}`,
-			});
-		}
-
-		let coupon = null;
-		if (couponCode) {
-			coupon = await Coupon.findOne({
-				code: String(couponCode).trim().toUpperCase(),
-				isActive: true,
-			});
-			const orderSubtotalDollars = totalAmount / 100;
-			if (coupon && isCouponApplicable(coupon, orderSubtotalDollars, req.user._id)) {
-				totalAmount -= Math.round((totalAmount * coupon.discountPercentage) / 100);
-			} else {
-				coupon = null;
-			}
-		}
-
-		if (totalAmount < minCharge) {
-			return res.status(400).json({
-				error: `Amount after discount is below Stripe minimum of ${minCharge / 100} ${currency.toUpperCase()}`,
-			});
-		}
-
-		const checkoutId = crypto.randomUUID();
-		const compactProducts = products.map((p) => ({
-			id: p._id || p.id,
-			quantity: p.quantity,
-			price: p.price,
-			size: p.size || "",
-			color: p.color || "",
-			style: p.style || "",
-		}));
-
-		const session = await stripe.checkout.sessions.create({
-			mode: "payment",
-			customer_email: req.user.email || undefined,
-			line_items: lineItems,
-			success_url: `${process.env.CLIENT_URL}/purchase-success?session_id={CHECKOUT_SESSION_ID}`,
-			cancel_url: `${process.env.CLIENT_URL}/purchase-cancel`,
-			payment_method_types: ["card"],
-			discounts: coupon
-				? [
-						{
-							coupon: await createStripeCoupon(stripe, coupon.discountPercentage),
-						},
-				  ]
-				: [],
-			metadata: {
-				userId: req.user._id.toString(),
-				checkoutId,
-			},
-			client_reference_id: req.user._id.toString(),
-		});
-
-		const payload = {
-			userId: req.user._id.toString(),
-			couponCode: coupon ? coupon.code : "",
-			shippingAddressId: shippingAddressId || "",
-			shippingAddress: addressResult.address,
-			products: compactProducts,
-		};
-		await saveCheckoutPayload(checkoutId, payload);
-		await saveCheckoutPayload(session.id, payload);
-
-		if (totalAmount >= 20000) {
-			await createNewCoupon(req.user._id);
-		}
-
-		res.status(200).json({
-			id: session.id,
-			url: session.url,
-			totalAmount: totalAmount / 100,
-		});
-	} catch (error) {
-		console.error("Error processing checkout:", error);
-		res.status(500).json({ message: "Error processing checkout", error: error.message });
-	}
-};
 
 export const mockCheckoutSession = async (req, res) => {
 	try {
@@ -607,51 +456,6 @@ export const verifyRazorpayPayment = async (req, res) => {
 		});
 	}
 };
-
-export const checkoutSuccess = async (req, res) => {
-	try {
-		const { sessionId } = req.body;
-		if (!sessionId) {
-			return res.status(400).json({ message: "sessionId is required" });
-		}
-
-		const stripe = getStripe();
-		if (!stripe) {
-			return res.status(500).json({ message: "Stripe is not configured" });
-		}
-
-		const session = await stripe.checkout.sessions.retrieve(sessionId);
-		const result = await fulfillPaidCheckoutSession(session);
-
-		if (!result.ok) {
-			return res.status(result.status || 400).json({ message: result.message });
-		}
-
-		return res.status(200).json({
-			success: true,
-			message: result.already
-				? "Order already created"
-				: "Payment successful, order created, and coupon usage recorded if used.",
-			orderId: result.order._id,
-			status: result.order.status,
-		});
-	} catch (error) {
-		console.error("Error processing successful checkout:", error);
-		res.status(500).json({
-			message: "Error processing successful checkout",
-			error: error.message,
-		});
-	}
-};
-
-async function createStripeCoupon(stripe, discountPercentage) {
-	const coupon = await stripe.coupons.create({
-		percent_off: discountPercentage,
-		duration: "once",
-	});
-
-	return coupon.id;
-}
 
 async function createNewCoupon(userId) {
 	await Coupon.findOneAndDelete({

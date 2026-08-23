@@ -70,7 +70,7 @@ const HomePage = () => {
               {
                 icon: ShieldCheck,
                 title: "Secure checkout",
-                text: "Stripe + saved addresses",
+                text: "Razorpay + saved addresses",
               },
               {
                 icon: RotateCcw,

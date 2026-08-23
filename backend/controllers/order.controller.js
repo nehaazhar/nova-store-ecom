@@ -25,7 +25,9 @@ const maybeRefundOrder = async (order, note) => {
 	}
 	order.statusHistory.push({
 		status: order.status,
-		note: note || (result.skipped ? "Cancelled (mock payment)" : "Stripe refund issued"),
+		note:
+			note ||
+			(result.skipped ? "Cancelled (no online charge)" : "Razorpay refund issued"),
 		changedAt: new Date(),
 	});
 	return result;

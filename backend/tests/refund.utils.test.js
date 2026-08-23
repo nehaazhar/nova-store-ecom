@@ -14,8 +14,20 @@ test("refundPaidOrder is idempotent once refunded", async () => {
 	assert.equal(result.already, true);
 });
 
-test("refundPaidOrder skips Stripe for mock checkouts", async () => {
+test("refundPaidOrder skips gateway for dummy checkouts", async () => {
 	const order = { refundStatus: "none", stripeSessionId: "MOCK-999" };
+	const result = await refundPaidOrder(order);
+	assert.equal(result.ok, true);
+	assert.equal(result.skipped, true);
+	assert.equal(order.refundStatus, "refunded");
+});
+
+test("refundPaidOrder skips legacy Stripe orders", async () => {
+	const order = {
+		refundStatus: "none",
+		paymentMethod: "stripe",
+		stripeSessionId: "cs_test_1",
+	};
 	const result = await refundPaidOrder(order);
 	assert.equal(result.ok, true);
 	assert.equal(result.skipped, true);

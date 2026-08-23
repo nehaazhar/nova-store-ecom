@@ -25,7 +25,7 @@ const OrderSummary = () => {
 	const { selectedAddressId, getSelectedAddress } = useAddressStore();
 	const forceMock = import.meta.env.VITE_USE_MOCK_CHECKOUT === "true";
 	const [paying, setPaying] = useState(false);
-	const [config, setConfig] = useState({ gateway: "none", razorpay: false, stripe: false });
+	const [config, setConfig] = useState({ gateway: "none", razorpay: false });
 	const [checking, setChecking] = useState(true);
 
 	useEffect(() => {
@@ -136,15 +136,6 @@ const OrderSummary = () => {
 				return;
 			}
 
-			if (onlineGateway === "stripe") {
-				const res = await axios.post("/payments/create-checkout-session", checkoutPayload());
-				if (res.data?.url) {
-					window.location.href = res.data.url;
-					return;
-				}
-				throw new Error("Stripe did not return a checkout URL");
-			}
-
 			const res = await axios.post("/payments/mock-checkout", checkoutPayload());
 			toast.success("Payment successful! Redirecting...");
 			window.location.href = `/purchase-success?mock=true&orderId=${res.data.orderId}`;
@@ -162,9 +153,7 @@ const OrderSummary = () => {
 	const onlineLabel =
 		onlineGateway === "razorpay"
 			? "Pay with Razorpay (UPI / Card)"
-			: onlineGateway === "stripe"
-				? "Pay with Stripe"
-				: "Proceed with Dummy Payment";
+			: "Proceed with Dummy Payment";
 
 	return (
 		<motion.div
@@ -237,15 +226,10 @@ const OrderSummary = () => {
 						Razorpay test: UPI / card. Success card often 4111 1111 1111 1111
 					</p>
 				)}
-				{onlineGateway === "stripe" && (
-					<p className="text-center text-xs text-nova-muted">
-						Test card: 4242 4242 4242 4242 · any future date · any CVC
-					</p>
-				)}
 				{onlineGateway === "none" && !checking && (
 					<p className="text-center text-xs text-amber-600">
-						Online gateway keys nahi mili — Dummy ya Cash on Delivery use karo. Razorpay
-						India ke liye .env mein RAZORPAY_KEY_ID / SECRET add karo.
+						Razorpay keys nahi mili — Dummy ya Cash on Delivery use karo. Root .env mein
+						RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET add karke server restart karo.
 					</p>
 				)}
 

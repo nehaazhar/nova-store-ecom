@@ -21,25 +21,9 @@ const PurchaseSuccessPage = () => {
 			}
 		};
 
-		const handleCheckoutSuccess = async (sessionId) => {
-			try {
-				const res = await axios.post("/payments/checkout-success", {
-					sessionId,
-				});
-				setOrderId(res.data.orderId || null);
-				await clearBackendCart();
-				clearCart();
-			} catch (err) {
-				console.log(err);
-				setError("Failed to finalize purchase. Please refresh and check your order history.");
-			} finally {
-				setIsProcessing(false);
-			}
-		};
-
-		const handleMockSuccess = async () => {
-			const mockOrderId = searchParams.get("orderId");
-			if (mockOrderId) setOrderId(mockOrderId);
+		const handlePaidSuccess = async () => {
+			const paidOrderId = searchParams.get("orderId");
+			if (paidOrderId) setOrderId(paidOrderId);
 			try {
 				await clearBackendCart();
 			} catch (err) {
@@ -49,20 +33,13 @@ const PurchaseSuccessPage = () => {
 			setIsProcessing(false);
 		};
 
-		const sessionId = searchParams.get("session_id");
-		const isMock = searchParams.get("mock") === "true";
-
-		if (isMock) {
-			handleMockSuccess();
+		if (searchParams.get("orderId") || searchParams.get("mock") === "true") {
+			handlePaidSuccess();
 			return;
 		}
 
-		if (sessionId) {
-			handleCheckoutSuccess(sessionId);
-		} else {
-			setIsProcessing(false);
-			setError("No session ID found in the URL");
-		}
+		setIsProcessing(false);
+		setError("No order found in the URL");
 	}, [clearCart, searchParams]);
 
 	if (isProcessing) return "Processing...";

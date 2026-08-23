@@ -1,6 +1,6 @@
 # NOVA
 
-MERN ecommerce shop — products, cart, checkout (Stripe / Razorpay / COD), orders, and an admin panel.
+MERN ecommerce shop — products, cart, checkout (Razorpay / COD), orders, and an admin panel.
 
 ## Run locally
 
@@ -81,10 +81,9 @@ git push -u origin master
 | `ACCESS_TOKEN_SECRET` | long random string |
 | `REFRESH_TOKEN_SECRET` | another long random string |
 | `CLIENT_URL` | `https://your-service.onrender.com` (set after first deploy if needed) |
-| Cloudinary / Stripe / Razorpay | optional; without them images/payments stay limited |
+| Cloudinary / Razorpay | optional; without them images/payments stay limited |
 
 4. After the URL exists, set `CLIENT_URL` to that `https://...` and redeploy.
-5. Stripe webhook (if using Stripe): `https://your-service.onrender.com/api/payments/webhook`
 
 First load on the free plan can take ~1 minute (cold start). Open `/api/health` — `{ "ok": true }` means the server is up.
 

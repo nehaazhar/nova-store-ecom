@@ -18,7 +18,6 @@ import wishlistRoutes from "./routes/wishlist.route.js";
 import addressRoutes from "./routes/address.route.js";
 
 import { connectDB } from "./lib/db.js";
-import { handleStripeWebhook } from "./controllers/webhook.controller.js";
 import { errorHandler, notFound } from "./middleware/error.middleware.js";
 import { apiLimiter } from "./middleware/rateLimit.middleware.js";
 import helmet from "helmet";
@@ -38,9 +37,6 @@ app.use(
 		crossOriginEmbedderPolicy: false,
 	})
 );
-
-// Raw body required for Stripe signature verification (must run before json parser)
-app.post("/api/payments/webhook", express.raw({ type: "application/json" }), handleStripeWebhook);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(cookieParser());
