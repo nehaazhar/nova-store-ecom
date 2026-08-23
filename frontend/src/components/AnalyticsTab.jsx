@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
 import { useEffect, useState } from "react";
 import axios from "../lib/axios";
-import { Users, Package, ShoppingCart, DollarSign } from "lucide-react";
+import toast from "react-hot-toast";
+import { Users, Package, ShoppingCart, DollarSign, Mail } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const AnalyticsTab = () => {
@@ -13,6 +14,19 @@ const AnalyticsTab = () => {
 	});
 	const [isLoading, setIsLoading] = useState(true);
 	const [dailySalesData, setDailySalesData] = useState([]);
+	const [testingEmail, setTestingEmail] = useState(false);
+
+	const sendTestEmail = async () => {
+		setTestingEmail(true);
+		try {
+			const res = await axios.post("/orders/test-email");
+			toast.success(res.data.message || "Test email sent. Check inbox and Spam.");
+		} catch (error) {
+			toast.error(error.response?.data?.message || "Test email failed");
+		} finally {
+			setTestingEmail(false);
+		}
+	};
 
 	useEffect(() => {
 		const fetchAnalyticsData = async () => {
@@ -36,6 +50,17 @@ const AnalyticsTab = () => {
 
 	return (
 		<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+			<div className="mb-6 flex justify-end">
+				<button
+					type="button"
+					onClick={sendTestEmail}
+					disabled={testingEmail}
+					className="nova-btn inline-flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-60"
+				>
+					<Mail className="h-4 w-4" />
+					{testingEmail ? "Sending test email..." : "Send test email to my account"}
+				</button>
+			</div>
 			<div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8'>
 				<AnalyticsCard
 					title='Total Users'

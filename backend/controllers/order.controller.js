@@ -1,7 +1,7 @@
 import Order, { ORDER_STATUSES, ORDER_STATUS_FLOW } from "../models/order.model.js";
 import User from "../models/user.model.js";
 import { restoreStockForProducts } from "../utils/inventory.utils.js";
-import { sendOrderEmail } from "../utils/email.utils.js";
+import { sendOrderEmail, sendEmail, isSmtpConfigured } from "../utils/email.utils.js";
 import { normalizeAddress } from "../controllers/address.controller.js";
 import { refundPaidOrder } from "../utils/refund.utils.js";
 
@@ -334,5 +334,35 @@ export const resolveReturn = async (req, res) => {
 	} catch (error) {
 		console.log("Error in resolveReturn", error.message);
 		res.status(500).json({ message: "Server error", error: error.message });
+	}
+};
+
+export const sendSmtpTestEmail = async (req, res) => {
+	try {
+		if (!isSmtpConfigured()) {
+			return res.status(500).json({
+				message:
+					"SMTP env vars missing on this server. Set SMTP_HOST, SMTP_USER, SMTP_PASS on Render and restart.",
+			});
+		}
+
+		const to = req.user.email;
+		const result = await sendEmail({
+			to,
+			subject: "NOVA SMTP test",
+			text: "If you received this, order emails can send from Render. Check Spam if you missed earlier order mails.",
+			html: "<p>If you received this, SMTP is working on Render.</p><p>Check Spam/Promotions for order emails.</p>",
+		});
+
+		if (!result.ok) {
+			return res.status(500).json({
+				message: result.error || "Gmail rejected the message",
+				mocked: result.mocked || false,
+			});
+		}
+
+		res.json({ ok: true, to, message: `Test email sent to ${to}` });
+	} catch (error) {
+		res.status(500).json({ message: error.message });
 	}
 };

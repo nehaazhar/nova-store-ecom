@@ -7,34 +7,69 @@ const envVal = (key) =>
 		.replace(/^['"]|['"]$/g, "")
 		.trim();
 
+const smtpPass = () => envVal("SMTP_PASS").replace(/\s/g, "");
+
 export const isSmtpConfigured = () =>
-	Boolean(envVal("SMTP_HOST") && envVal("SMTP_USER") && envVal("SMTP_PASS"));
+	Boolean(envVal("SMTP_HOST") && envVal("SMTP_USER") && smtpPass());
+
+const createSmtpTransport = (port) => {
+	const SMTP_HOST = envVal("SMTP_HOST");
+	const SMTP_USER = envVal("SMTP_USER");
+	const SMTP_PASS = smtpPass();
+	const usePort = Number(port || envVal("SMTP_PORT") || 587);
+	const isGmail = /gmail\.com/i.test(SMTP_HOST) || /gmail\.com/i.test(SMTP_USER);
+
+	if (isGmail && usePort === 465) {
+		return nodemailer.createTransport({
+			host: "smtp.gmail.com",
+			port: 465,
+			secure: true,
+			family: 4,
+			auth: { user: SMTP_USER, pass: SMTP_PASS },
+			connectionTimeout: 20000,
+			socketTimeout: 20000,
+		});
+	}
+
+	if (isGmail) {
+		return nodemailer.createTransport({
+			service: "gmail",
+			auth: { user: SMTP_USER, pass: SMTP_PASS },
+			connectionTimeout: 20000,
+			greetingTimeout: 20000,
+			socketTimeout: 20000,
+		});
+	}
+
+	return nodemailer.createTransport({
+		host: SMTP_HOST,
+		port: usePort,
+		secure: usePort === 465,
+		requireTLS: usePort === 587,
+		family: 4,
+		auth: { user: SMTP_USER, pass: SMTP_PASS },
+		connectionTimeout: 20000,
+		greetingTimeout: 20000,
+		socketTimeout: 20000,
+	});
+};
 
 let transporter = null;
 
 const getTransporter = () => {
 	if (transporter) return transporter;
-
-	const SMTP_HOST = envVal("SMTP_HOST");
-	const SMTP_USER = envVal("SMTP_USER");
-	const SMTP_PASS = envVal("SMTP_PASS");
-	const SMTP_PORT = Number(envVal("SMTP_PORT") || 587);
-
-	if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
-		return null;
-	}
-
-	transporter = nodemailer.createTransport({
-		host: SMTP_HOST,
-		port: SMTP_PORT,
-		secure: SMTP_PORT === 465,
-		auth: {
-			user: SMTP_USER,
-			pass: SMTP_PASS,
-		},
-	});
-
+	if (!isSmtpConfigured()) return null;
+	transporter = createSmtpTransport();
 	return transporter;
+};
+
+const mailFrom = () => {
+	const user = envVal("SMTP_USER");
+	const from = envVal("EMAIL_FROM") || user || "noreply@ecommerce.local";
+	if (user && !from.toLowerCase().includes(user.toLowerCase())) {
+		return `NOVA <${user}>`;
+	}
+	return from;
 };
 
 const escapeHtml = (value = "") =>
@@ -443,19 +478,59 @@ export const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
 };
 
 export const sendEmail = async ({ to, subject, text, html, attachments = [] }) => {
-	const from = process.env.EMAIL_FROM || process.env.SMTP_USER || "noreply@ecommerce.local";
-	const mail = { from, to, subject, text, html, attachments };
+	const mail = { from: mailFrom(), to, subject, text, html, attachments };
 
-	const transport = getTransporter();
-	if (!transport) {
+	if (!isSmtpConfigured()) {
 		console.warn("[email] SMTP not configured — mail not sent", { to, subject });
 		console.log("[email:dev]", { to, subject, text });
-		return { ok: false, mocked: true };
+		return { ok: false, mocked: true, error: "SMTP is not configured on this server" };
 	}
 
-	const info = await transport.sendMail(mail);
-	console.log("[email] sent", { to, subject, id: info.messageId });
-	return { ok: true, mocked: false };
+	const trySend = async (payload) => {
+		const isGmail =
+			/gmail\.com/i.test(envVal("SMTP_HOST")) || /gmail\.com/i.test(envVal("SMTP_USER"));
+		const ports = isGmail
+			? [587, 465]
+			: [Number(envVal("SMTP_PORT") || 587), 465, 587];
+		const uniquePorts = [...new Set(ports.filter(Boolean))];
+		let lastError = null;
+
+		for (const port of uniquePorts) {
+			try {
+				const transport = createSmtpTransport(port);
+				const info = await transport.sendMail(payload);
+				transporter = transport;
+				console.log("[email] sent", { to, subject, id: info.messageId, port });
+				return { ok: true, mocked: false };
+			} catch (error) {
+				lastError = error;
+				console.error("[email] send attempt failed", {
+					port,
+					code: error.code,
+					command: error.command,
+					message: error.message,
+				});
+			}
+		}
+
+		throw lastError || new Error("Email send failed");
+	};
+
+	try {
+		return await trySend(mail);
+	} catch (error) {
+		if (attachments?.length) {
+			console.warn("[email] retrying without attachments");
+			try {
+				return await trySend({ ...mail, attachments: [] });
+			} catch (retryError) {
+				console.error("[email] send failed:", retryError.message);
+				return { ok: false, mocked: false, error: retryError.message };
+			}
+		}
+		console.error("[email] send failed:", error.message);
+		return { ok: false, mocked: false, error: error.message };
+	}
 };
 
 export const sendOrderEmail = async (order, event) => {
@@ -483,11 +558,6 @@ export const sendOrderEmail = async (order, event) => {
 			const attachment = await fetchImageAttachment(item.product?.imageUrl, i);
 			if (attachment) {
 				attachments.push(attachment);
-				attachments.push({
-					filename: `${(item.product?.name || "product").replace(/[^\w.-]+/g, "_").slice(0, 40)}.jpg`,
-					content: Buffer.from(attachment.content),
-					contentType: attachment.contentType || "image/jpeg",
-				});
 				productsForEmail.push({ ...item, cid: attachment.cid });
 				console.log(`[email] inline image ready: ${attachment.cid} (${attachment.content.length} bytes)`);
 			} else {
@@ -558,7 +628,10 @@ Thank you for shopping with us.`;
 			ordersUrl,
 		});
 
-		await sendEmail({ to: email, subject, text, html, attachments });
+		const result = await sendEmail({ to: email, subject, text, html, attachments });
+		if (!result.ok) {
+			console.error("[email] order mail not delivered", { to: email, event, error: result.error });
+		}
 	} catch (error) {
 		console.error("sendOrderEmail failed:", error.message);
 	}
