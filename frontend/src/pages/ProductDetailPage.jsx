@@ -518,19 +518,32 @@ const ProductDetailPage = () => {
 									{user.role === "admin" ? " · admin" : ""})
 								</span>
 							</p>
-							<div className="flex items-center gap-3">
+							<div className="flex flex-wrap items-center gap-3">
 								<label className="text-sm text-nova-muted">Your rating</label>
-								<select
-									value={rating}
-									onChange={(e) => setRating(Number(e.target.value))}
-									className={`bg-nova-bg border border-nova-line rounded-md px-3 py-2 text-sm font-semibold ${formRatingStyle.text}`}
-								>
-									{[5, 4, 3, 2, 1].map((n) => (
-										<option key={n} value={n}>
-											{n} star{n > 1 ? "s" : ""}
-										</option>
-									))}
-								</select>
+								<div className="flex items-center gap-1">
+									{[1, 2, 3, 4, 5].map((n) => {
+										const active = rating >= n;
+										return (
+											<button
+												key={n}
+												type="button"
+												onClick={() => setRating(n)}
+												className="rounded-md p-1 transition"
+												aria-label={`${n} star${n > 1 ? "s" : ""}`}
+											>
+												<Star
+													size={22}
+													className={
+														active ? formRatingStyle.star : "fill-slate-200 text-slate-300"
+													}
+												/>
+											</button>
+										);
+									})}
+								</div>
+								<span className={`text-sm font-semibold ${formRatingStyle.text}`}>
+									{rating} {rating === 1 ? "star" : "stars"}
+								</span>
 							</div>
 							<textarea
 								value={comment}
