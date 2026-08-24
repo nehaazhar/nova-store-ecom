@@ -275,7 +275,12 @@ const ProductDetailPage = () => {
 	};
 
 	const handleSaveReply = async (review, overrideComment) => {
-		const draft = overrideComment ?? replyDrafts[review._id] ?? review.adminReply?.comment ?? "";
+		const draft = overrideComment ?? replyDrafts[review._id] ?? "";
+		if (overrideComment === undefined && !draft.trim()) {
+			toast.error("Please write a reply");
+			return;
+		}
+
 		setSavingReplyId(review._id);
 		try {
 			const res = await axios.put(`/reviews/${review._id}/reply`, {
@@ -286,7 +291,7 @@ const ProductDetailPage = () => {
 			);
 			setReplyDrafts((prev) => ({
 				...prev,
-				[review._id]: res.data.review.adminReply?.comment || "",
+				[review._id]: "",
 			}));
 			toast.success(draft.trim() ? "Reply saved" : "Reply removed");
 		} catch (error) {
@@ -710,10 +715,10 @@ const ProductDetailPage = () => {
 												Reply as admin
 											</label>
 											<textarea
-												value={replyDrafts[review._id] ?? review.adminReply?.comment ?? ""}
+												value={replyDrafts[review._id] ?? ""}
 												onChange={(e) => handleReplyDraftChange(review._id, e.target.value)}
 												rows={2}
-												placeholder="Write a reply for this customer review..."
+												placeholder={review.adminReply?.comment ? "Write a new reply to update it..." : "Write a reply for this customer review..."}
 												className="w-full rounded-md border border-nova-line bg-nova-bg px-3 py-2 text-sm text-nova-ink placeholder:text-nova-muted"
 											/>
 											<div className="mt-2 flex flex-wrap gap-2">
