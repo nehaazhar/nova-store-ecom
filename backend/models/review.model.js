@@ -32,6 +32,23 @@ const reviewSchema = new mongoose.Schema(
 				message: "Maximum 5 images allowed per review",
 			},
 		},
+		adminReply: {
+			comment: {
+				type: String,
+				trim: true,
+				maxlength: 1000,
+				default: "",
+			},
+			repliedBy: {
+				type: mongoose.Schema.Types.ObjectId,
+				ref: "User",
+				default: null,
+			},
+			repliedAt: {
+				type: Date,
+				default: null,
+			},
+		},
 	},
 	{ timestamps: true }
 );

@@ -83,6 +83,7 @@ export const getProductReviews = async (req, res) => {
 	try {
 		const reviews = await Review.find({ product: req.params.productId })
 			.populate("user", "name")
+			.populate("adminReply.repliedBy", "name")
 			.sort({ createdAt: -1 });
 		res.json({ reviews });
 	} catch (error) {
@@ -133,6 +134,7 @@ export const createReview = async (req, res) => {
 
 		const ratingData = await refreshProductRating(product._id);
 		await review.populate("user", "name");
+		await review.populate("adminReply.repliedBy", "name");
 
 		res.status(201).json({ review, ...ratingData });
 	} catch (error) {
@@ -181,6 +183,7 @@ export const updateReview = async (req, res) => {
 		await review.save();
 		const ratingData = await refreshProductRating(review.product);
 		await review.populate("user", "name");
+		await review.populate("adminReply.repliedBy", "name");
 
 		res.json({ review, ...ratingData });
 	} catch (error) {
@@ -213,6 +216,39 @@ export const deleteReview = async (req, res) => {
 		res.json({ message: "Review deleted", ...ratingData });
 	} catch (error) {
 		console.log("Error in deleteReview", error.message);
+		res.status(500).json({ message: "Server error", error: error.message });
+	}
+};
+export const replyToReview = async (req, res) => {
+	try {
+		const { comment } = req.body;
+		const review = await Review.findById(req.params.reviewId);
+		if (!review) {
+			return res.status(404).json({ message: "Review not found" });
+		}
+
+		const normalizedComment = String(comment || "").trim();
+		if (!normalizedComment) {
+			review.adminReply = {
+				comment: "",
+				repliedBy: null,
+				repliedAt: null,
+			};
+		} else {
+			review.adminReply = {
+				comment: normalizedComment,
+				repliedBy: req.user._id,
+				repliedAt: new Date(),
+			};
+		}
+
+		await review.save();
+		await review.populate("user", "name");
+		await review.populate("adminReply.repliedBy", "name");
+
+		res.json({ review });
+	} catch (error) {
+		console.log("Error in replyToReview", error.message);
 		res.status(500).json({ message: "Server error", error: error.message });
 	}
 };

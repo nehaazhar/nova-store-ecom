@@ -8,6 +8,7 @@ import {
 	Heart,
 	ImagePlus,
 	Loader2,
+	MessageSquare,
 	ShoppingCart,
 	Star,
 	Trash2,
@@ -25,9 +26,6 @@ import {
 	availableSizes,
 	availableStyles,
 	getVariantStock,
-	inStockColors,
-	inStockSizes,
-	inStockStyles,
 } from "../utils/variant.utils";
 import { getRatingStyle } from "../utils/rating.utils";
 
@@ -53,6 +51,8 @@ const ProductDetailPage = () => {
 	const [selectedSize, setSelectedSize] = useState("");
 	const [selectedColor, setSelectedColor] = useState("");
 	const [selectedStyle, setSelectedStyle] = useState("");
+	const [replyDrafts, setReplyDrafts] = useState({});
+	const [savingReplyId, setSavingReplyId] = useState("");
 
 	const loadProduct = async () => {
 		const res = await axios.get(`/products/${id}`);
@@ -269,6 +269,32 @@ const ProductDetailPage = () => {
 		}
 	};
 
+
+	const handleReplyDraftChange = (reviewId, value) => {
+		setReplyDrafts((prev) => ({ ...prev, [reviewId]: value }));
+	};
+
+	const handleSaveReply = async (review, overrideComment) => {
+		const draft = overrideComment ?? replyDrafts[review._id] ?? review.adminReply?.comment ?? "";
+		setSavingReplyId(review._id);
+		try {
+			const res = await axios.put(`/reviews/${review._id}/reply`, {
+				comment: draft,
+			});
+			setReviews((prev) =>
+				prev.map((item) => (item._id === review._id ? res.data.review : item))
+			);
+			setReplyDrafts((prev) => ({
+				...prev,
+				[review._id]: res.data.review.adminReply?.comment || "",
+			}));
+			toast.success(draft.trim() ? "Reply saved" : "Reply removed");
+		} catch (error) {
+			toast.error(error.response?.data?.message || "Failed to save reply");
+		} finally {
+			setSavingReplyId("");
+		}
+	};
 	const handleDeleteReview = async (reviewId) => {
 		try {
 			const res = await axios.delete(`/reviews/${reviewId}`);
@@ -663,6 +689,53 @@ const ProductDetailPage = () => {
 													/>
 												</button>
 											))}
+										</div>
+									)}
+									{review.adminReply?.comment && (
+										<div className="mt-3 rounded-md border border-nova-accent/30 bg-nova-glow p-3">
+											<p className="mb-1 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-nova-accent">
+												<MessageSquare size={14} /> Admin reply
+											</p>
+											<p className="text-sm text-nova-ink">{review.adminReply.comment}</p>
+											{review.adminReply.repliedAt && (
+												<p className="mt-2 text-xs text-nova-muted">
+													{review.adminReply.repliedBy?.name || "Admin"} replied on {new Date(review.adminReply.repliedAt).toLocaleDateString()}
+												</p>
+											)}
+										</div>
+									)}
+									{user?.role === "admin" && (
+										<div className="mt-3 rounded-md border border-nova-line bg-white/60 p-3">
+											<label className="mb-2 block text-xs font-medium text-nova-muted">
+												Reply as admin
+											</label>
+											<textarea
+												value={replyDrafts[review._id] ?? review.adminReply?.comment ?? ""}
+												onChange={(e) => handleReplyDraftChange(review._id, e.target.value)}
+												rows={2}
+												placeholder="Write a reply for this customer review..."
+												className="w-full rounded-md border border-nova-line bg-nova-bg px-3 py-2 text-sm text-nova-ink placeholder:text-nova-muted"
+											/>
+											<div className="mt-2 flex flex-wrap gap-2">
+												<button
+													type="button"
+													onClick={() => handleSaveReply(review)}
+													disabled={savingReplyId === review._id}
+													className="rounded-md bg-nova-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-nova-accent-dark disabled:opacity-50"
+												>
+													{savingReplyId === review._id ? "Saving..." : "Save Reply"}
+												</button>
+												{review.adminReply?.comment && (
+													<button
+														type="button"
+														onClick={() => handleSaveReply(review, "")}
+														disabled={savingReplyId === review._id}
+														className="rounded-md border border-nova-line px-3 py-1.5 text-xs font-medium text-nova-muted hover:text-red-400 disabled:opacity-50"
+													>
+														Remove Reply
+													</button>
+												)}
+											</div>
 										</div>
 									)}
 									<p className="text-xs text-nova-muted mt-2">
