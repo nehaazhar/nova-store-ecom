@@ -132,7 +132,7 @@ const Navbar = () => {
 							<>
 								<Link to="/orders" className={iconLink}>
 									<Package size={17} />
-									<span className="hidden xl:inline">Orders</span>
+									<span className="hidden xl:inline">My Orders</span>
 								</Link>
 								<Link to="/addresses" className={iconLink}>
 									<MapPin size={17} />
@@ -224,7 +224,7 @@ const Navbar = () => {
 							{ to: "/cart", label: "Cart" },
 							...(user
 								? [
-										{ to: "/orders", label: "Orders" },
+										{ to: "/orders", label: "My Orders" },
 										{ to: "/wishlist", label: "Wishlist" },
 										{ to: "/addresses", label: "Addresses" },
 										{ to: "/account", label: "Account" },
@@ -265,3 +265,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

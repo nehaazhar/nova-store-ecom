@@ -12,7 +12,7 @@ import { useProductStore } from "../stores/useProductStore";
 const tabs = [
   { id: "create", label: "Create Product", icon: PlusCircle },
   { id: "products", label: "Products", icon: ShoppingBasket },
-  { id: "orders", label: "Orders", icon: ClipboardList },
+  { id: "orders", label: "Customer Orders", icon: ClipboardList },
   { id: "analytics", label: "Analytics", icon: BarChart },
   { id: "coupons", label: "Coupons", icon: TicketPercent },
 ];
@@ -84,3 +84,4 @@ const AdminPage = () => {
   );
 };
 export default AdminPage;
+
