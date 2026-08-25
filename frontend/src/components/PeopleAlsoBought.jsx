@@ -28,12 +28,13 @@ const PeopleAlsoBought = () => {
 	return (
 		<div className='mt-8'>
 			<h3 className="font-display text-2xl font-bold text-nova-ink">People also bought</h3>
-			<div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+			<div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 				{recommendations.map((product) => (
-					<ProductCard key={product._id} product={product} />
+					<ProductCard key={product._id} product={product} compact />
 				))}
 			</div>
 		</div>
 	);
 };
 export default PeopleAlsoBought;
+

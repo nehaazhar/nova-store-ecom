@@ -7,7 +7,7 @@ import { useWishlistStore } from "../stores/useWishlistStore";
 import ProductImage from "./ProductImage";
 import { getRatingStyle } from "../utils/rating.utils";
 
-const ProductCard = ({ product }) => {
+const ProductCard = ({ product, compact = false }) => {
 	const { user } = useUserStore();
 	const { addToCart, addingToCart, addingProductId } = useCartStore();
 	const { toggleWishlist, isInWishlist } = useWishlistStore();
@@ -48,9 +48,9 @@ const ProductCard = ({ product }) => {
 	return (
 		<Link
 			to={`/product/${product._id}`}
-			className="group flex w-full flex-col overflow-hidden rounded-[1.5rem] border border-nova-line/70 bg-white shadow-card transition duration-500 hover:-translate-y-1.5 hover:border-nova-accent/30 hover:shadow-soft"
+			className={`group flex w-full flex-col overflow-hidden border border-nova-line/70 bg-white shadow-card transition duration-500 hover:-translate-y-1.5 hover:border-nova-accent/30 hover:shadow-soft ${compact ? "rounded-2xl" : "rounded-[1.5rem]"}`}
 		>
-			<div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-b from-slate-100 to-slate-50">
+			<div className={`relative overflow-hidden bg-gradient-to-b from-slate-100 to-slate-50 ${compact ? "aspect-[5/4]" : "aspect-[4/5]"}`}>
 				<ProductImage
 					className="h-full w-full object-cover transition duration-700 ease-out group-hover:scale-110"
 					src={product.images?.[0] || product.image}
@@ -71,20 +71,20 @@ const ProductCard = ({ product }) => {
 				<button
 					type="button"
 					onClick={handleWishlist}
-					className="absolute right-3 top-3 rounded-full bg-white/95 p-2.5 shadow-md ring-1 ring-black/5 transition hover:scale-110"
+					className={`absolute rounded-full bg-white/95 shadow-md ring-1 ring-black/5 transition hover:scale-110 ${compact ? "right-2 top-2 p-2" : "right-3 top-3 p-2.5"}`}
 					title={liked ? "Remove from wishlist" : "Add to wishlist"}
 				>
 					<Heart
-						size={17}
+						size={compact ? 15 : 17}
 						className={liked ? "fill-rose-500 text-rose-500" : "text-nova-muted"}
 					/>
 				</button>
 
-				<div className="absolute inset-x-3 bottom-3 translate-y-3 opacity-0 transition duration-400 group-hover:translate-y-0 group-hover:opacity-100">
+				<div className={`absolute translate-y-3 opacity-0 transition duration-400 group-hover:translate-y-0 group-hover:opacity-100 ${compact ? "inset-x-2 bottom-2" : "inset-x-3 bottom-3"}`}>
 					<button
 						type="button"
 						disabled={outOfStock || isAdding}
-						className="flex w-full items-center justify-center gap-2 rounded-2xl bg-nova-ink/95 px-4 py-2.5 text-sm font-semibold text-white shadow-lg backdrop-blur disabled:opacity-50"
+						className={`flex w-full items-center justify-center gap-2 bg-nova-ink/95 font-semibold text-white shadow-lg backdrop-blur disabled:opacity-50 ${compact ? "rounded-xl px-3 py-2 text-xs" : "rounded-2xl px-4 py-2.5 text-sm"}`}
 						onClick={handleAddToCart}
 					>
 						{isAdding ? (
@@ -106,16 +106,16 @@ const ProductCard = ({ product }) => {
 				</div>
 			</div>
 
-			<div className="flex flex-1 flex-col px-4 pb-4 pt-3.5">
+			<div className={`flex flex-1 flex-col ${compact ? "px-3 pb-3 pt-2.5" : "px-4 pb-4 pt-3.5"}`}>
 				{product.category && (
-					<p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-nova-accent">
+					<p className={`${compact ? "mb-0.5 text-[10px]" : "mb-1 text-[11px]"} font-semibold uppercase tracking-wider text-nova-accent`}>
 						{product.category}
 					</p>
 				)}
-				<h5 className="line-clamp-2 text-[15px] font-semibold leading-snug text-nova-ink">
+				<h5 className={`line-clamp-2 font-semibold leading-snug text-nova-ink ${compact ? "text-sm" : "text-[15px]"}`}>
 					{product.name}
 				</h5>
-				<div className="mt-2 flex items-center gap-2 text-xs text-nova-muted">
+				<div className={`${compact ? "mt-1.5 gap-1.5 text-[11px]" : "mt-2 gap-2 text-xs"} flex items-center text-nova-muted`}>
 					<span
 						className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 ring-1 ${ratingStyle.badge}`}
 					>
@@ -127,7 +127,7 @@ const ProductCard = ({ product }) => {
 					<span>{outOfStock ? "Sold out" : `${product.stock ?? 0} left`}</span>
 				</div>
 				{needsOptions && (
-					<p className="mt-2 text-xs text-nova-muted">
+					<p className={`${compact ? "mt-1.5 text-[11px]" : "mt-2 text-xs"} text-nova-muted`}>
 						{[
 							product.sizes?.length && `${product.sizes.length} sizes`,
 							product.colors?.length && `${product.colors.length} colors`,
@@ -137,8 +137,8 @@ const ProductCard = ({ product }) => {
 							.join(" · ")}
 					</p>
 				)}
-				<div className="mt-auto flex items-end justify-between gap-2 pt-3">
-					<p className="font-display text-2xl font-bold tracking-tight text-nova-ink">
+				<div className={`mt-auto flex items-end justify-between gap-2 ${compact ? "pt-2" : "pt-3"}`}>
+					<p className={`font-display font-bold tracking-tight text-nova-ink ${compact ? "text-xl" : "text-2xl"}`}>
 						₹{product.price}
 					</p>
 					<span className="mb-1 text-xs font-medium text-nova-muted opacity-0 transition group-hover:opacity-100">
@@ -151,3 +151,4 @@ const ProductCard = ({ product }) => {
 };
 
 export default ProductCard;
+
