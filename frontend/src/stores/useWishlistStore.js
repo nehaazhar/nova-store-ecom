@@ -20,10 +20,6 @@ export const useWishlistStore = create((set, get) => ({
 	toggleWishlist: async (productId) => {
 		try {
 			const res = await axios.post("/wishlist/toggle", { productId });
-			const ids = (res.data.wishlist || []).map((id) =>
-				typeof id === "string" ? id : id._id || id
-			);
-
 			// Keep full product objects when possible
 			const current = get().wishlist;
 			if (res.data.inWishlist) {
@@ -68,3 +64,4 @@ export const useWishlistStore = create((set, get) => ({
 		}
 	},
 }));
+
