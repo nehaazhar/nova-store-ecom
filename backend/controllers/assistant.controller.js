@@ -49,6 +49,30 @@ const parseBudget = (query) => {
 	return match ? Number(match[1]) : null;
 };
 
+const editDistance = (a, b) => {
+	const dp = Array.from({ length: a.length + 1 }, () => Array(b.length + 1).fill(0));
+	for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+	for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+	for (let i = 1; i <= a.length; i++) {
+		for (let j = 1; j <= b.length; j++) {
+			dp[i][j] = Math.min(
+				dp[i - 1][j] + 1,
+				dp[i][j - 1] + 1,
+				dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+			);
+		}
+	}
+	return dp[a.length][b.length];
+};
+
+const hasFuzzyTokenMatch = (token, words) =>
+	token.length >= 6 &&
+	words.some(
+		(word) =>
+			word.length >= 6 &&
+			token.slice(0, 2) === word.slice(0, 2) &&
+			editDistance(token, word) <= 2
+	);
 const buildProductText = (product) =>
 	[
 		product.name,
@@ -60,14 +84,23 @@ const buildProductText = (product) =>
 	].join(" ");
 
 const scoreProduct = (product, queryTokens, budget, categoryIntent) => {
-	const haystack = normalize(buildProductText(product));
+	const productText = buildProductText(product);
+	const haystack = normalize(productText);
+	const productWords = tokenize(productText).map(singularize);
 	const category = normalize(product.category);
 	if (categoryIntent && category !== categoryIntent) return -Infinity;
 
-	let score = 0;
+	let relevanceScore = 0;
 	for (const token of queryTokens) {
-		if (haystack.includes(token)) score += token.length > 3 ? 3 : 1;
+		const normalizedToken = singularize(token);
+		if (haystack.includes(token)) relevanceScore += token.length > 3 ? 3 : 1;
+		else if (hasFuzzyTokenMatch(normalizedToken, productWords)) relevanceScore += 2;
 	}
+
+	const hasIntentMatch = relevanceScore > 0 || Boolean(categoryIntent) || Boolean(budget);
+	if (!hasIntentMatch) return -Infinity;
+
+	let score = relevanceScore;
 	if (categoryIntent && category === categoryIntent) score += 10;
 	if (budget && product.price <= budget) score += 4;
 	if (budget && product.price > budget) score -= 5;
@@ -207,6 +240,8 @@ export const askShoppingAssistant = async (req, res) => {
 		});
 	}
 };
+
+
 
 
 
