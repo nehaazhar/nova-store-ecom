@@ -16,6 +16,7 @@ import orderRoutes from "./routes/order.route.js";
 import reviewRoutes from "./routes/review.route.js";
 import wishlistRoutes from "./routes/wishlist.route.js";
 import addressRoutes from "./routes/address.route.js";
+import assistantRoutes from "./routes/assistant.route.js";
 
 import { connectDB } from "./lib/db.js";
 import { isSmtpConfigured, isHttpsEmailConfigured } from "./utils/email.utils.js";
@@ -65,6 +66,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/wishlist", wishlistRoutes);
 app.use("/api/addresses", addressRoutes);
 app.use("/api/analytics", analyticsRoutes);
+app.use("/api/assistant", assistantRoutes);
 app.use("/api", notFound);
 app.use(errorHandler);
 
@@ -81,3 +83,5 @@ app.listen(PORT, () => {
 	console.log("Server is running on http://localhost:" + PORT);
 	connectDB();
 });
+
+

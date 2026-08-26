@@ -24,6 +24,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import AccountPage from "./pages/AccountPage";
+import AssistantWidget from "./components/AssistantWidget";
 import { useWishlistStore } from "./stores/useWishlistStore";
 
 function App() {
@@ -158,6 +159,8 @@ function App() {
 					</div>
 				</div>
 			</footer>
+
+			<AssistantWidget />
 
 			<Toaster
 				position="top-right"
