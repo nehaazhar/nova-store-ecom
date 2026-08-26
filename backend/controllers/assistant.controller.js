@@ -27,7 +27,7 @@ const tokenize = (value) =>
 		.split(/\s+/)
 		.filter((word) => word.length > 1);
 
-const singularize = (word) => word.replace(/ies$/, "y").replace(/s$/, "");
+const singularize = (word) => word.replace(/ies$/, "y").replace(/ches$/, "ch").replace(/shes$/, "sh").replace(/xes$/, "x").replace(/ses$/, "s").replace(/s$/, "");
 
 const detectCategory = async (queryTokens) => {
 	const categories = await Product.distinct("category");
@@ -240,6 +240,7 @@ export const askShoppingAssistant = async (req, res) => {
 		});
 	}
 };
+
 
 
 
