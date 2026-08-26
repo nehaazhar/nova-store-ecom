@@ -18,16 +18,6 @@ const POLICIES = [
 	},
 ];
 
-const CATEGORY_ALIASES = {
-	shoes: ["shoe", "shoes", "sneaker", "sneakers", "slipper", "slippers", "boot", "boots", "footwear"],
-	shirts: ["shirt", "shirts", "formal", "office"],
-	tops: ["top", "tops", "tshirt", "tshirts", "t-shirt", "tee"],
-	dresses: ["dress", "dresses", "frock", "gown"],
-	bags: ["bag", "bags", "handbag", "purse"],
-	sunglasses: ["sunglass", "sunglasses", "glasses", "eyewear"],
-	watches: ["watch", "watches"],
-	jewellery: ["jewellery", "jewelry", "necklace", "ring", "bracelet", "earrings"],
-};
 
 const normalize = (value) => String(value || "").toLowerCase();
 
@@ -37,11 +27,18 @@ const tokenize = (value) =>
 		.split(/\s+/)
 		.filter((word) => word.length > 1);
 
-const detectCategory = (queryTokens) => {
-	for (const [category, aliases] of Object.entries(CATEGORY_ALIASES)) {
-		if (aliases.some((alias) => queryTokens.includes(alias))) return category;
-	}
-	return null;
+const singularize = (word) => word.replace(/ies$/, "y").replace(/s$/, "");
+
+const detectCategory = async (queryTokens) => {
+	const categories = await Product.distinct("category");
+	const querySet = new Set(queryTokens.map(singularize));
+
+	return (
+		categories.find((category) => {
+			const categoryTokens = tokenize(category).map(singularize);
+			return categoryTokens.some((token) => querySet.has(token));
+		}) || null
+	);
 };
 
 const parseBudget = (query) => {
@@ -81,7 +78,13 @@ const scoreProduct = (product, queryTokens, budget, categoryIntent) => {
 
 const scorePolicy = (policy, queryTokens) =>
 	policy.keywords.reduce(
-		(score, keyword) => score + (queryTokens.includes(keyword) ? 4 : 0),
+		(score, keyword) =>
+			score +
+			(queryTokens.some(
+				(token) => token === keyword || singularize(token) === singularize(keyword)
+			)
+				? 4
+				: 0),
 		0
 	);
 
@@ -122,14 +125,23 @@ export const askShoppingAssistant = async (req, res) => {
 
 		const queryTokens = tokenize(question);
 		const budget = parseBudget(question);
-		const categoryIntent = detectCategory(queryTokens);
+		const categoryIntent = await detectCategory(queryTokens);
+		const matchedPolicies = POLICIES.map((policy) => ({
+			policy,
+			score: scorePolicy(policy, queryTokens),
+		}))
+			.filter(({ score }) => score > 0)
+			.sort((a, b) => b.score - a.score)
+			.slice(0, 2)
+			.map(({ policy }) => policy);
+		const policyOnly = matchedPolicies.length > 0 && !categoryIntent && !budget;
 		const textQuery = queryTokens.join(" ");
 		const mongoFilter = {
 			...(budget ? { price: { $lte: Math.max(budget, 1) } } : {}),
 			...(categoryIntent ? { category: categoryIntent } : {}),
 		};
 
-		const textMatches = textQuery
+		const textMatches = textQuery && !policyOnly
 			? await Product.find(
 					{ ...mongoFilter, $text: { $search: textQuery } },
 					{ score: { $meta: "textScore" } }
@@ -140,10 +152,12 @@ export const askShoppingAssistant = async (req, res) => {
 					.catch(() => [])
 			: [];
 
-		const fallbackProducts = await Product.find(mongoFilter)
-			.sort({ isFeatured: -1, averageRating: -1, stock: -1, createdAt: -1 })
-			.limit(40)
-			.lean();
+		const fallbackProducts = policyOnly
+			? []
+			: await Product.find(mongoFilter)
+					.sort({ isFeatured: -1, averageRating: -1, stock: -1, createdAt: -1 })
+					.limit(40)
+					.lean();
 
 		const productsById = new Map(
 			[...textMatches, ...fallbackProducts].map((product) => [
@@ -176,14 +190,6 @@ export const askShoppingAssistant = async (req, res) => {
 				styles: product.styles || [],
 			}));
 
-		const matchedPolicies = POLICIES.map((policy) => ({
-			policy,
-			score: scorePolicy(policy, queryTokens),
-		}))
-			.filter(({ score }) => score > 0)
-			.sort((a, b) => b.score - a.score)
-			.slice(0, 2)
-			.map(({ policy }) => policy);
 
 		res.json({
 			answer: buildAnswer({ products: rankedProducts, policies: matchedPolicies, budget }),
@@ -201,4 +207,6 @@ export const askShoppingAssistant = async (req, res) => {
 		});
 	}
 };
+
+
 
