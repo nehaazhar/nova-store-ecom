@@ -8,7 +8,7 @@ import {
 	normalizeEmail,
 	toPublicUser,
 } from "../utils/auth.utils.js";
-import { isSmtpConfigured, sendPasswordResetEmail, sendVerificationEmail } from "../utils/email.utils.js";
+import { sendPasswordResetEmail, sendVerificationEmail } from "../utils/email.utils.js";
 
 const VERIFY_EXPIRES_MS = 24 * 60 * 60 * 1000;
 const RESET_EXPIRES_MS = 60 * 60 * 1000;
@@ -85,10 +85,21 @@ export const signup = async (req, res) => {
 		name,
 		email,
 		password,
-		isEmailVerified: true,
+		isEmailVerified: false,
 	});
 	await user.save();
-	await issueSession(res, user);
+
+	const token = await issueEmailToken(user, {
+		hashField: "emailVerifyTokenHash",
+		expiresField: "emailVerifyExpires",
+		ttlMs: VERIFY_EXPIRES_MS,
+	});
+	await sendVerificationEmail({
+		to: email,
+		name,
+		verifyUrl: `${clientUrl()}/verify-email?token=${token}`,
+	});
+
 	res.status(201).json(toPublicUser(user));
 };
 
@@ -99,6 +110,13 @@ export const login = async (req, res) => {
 
 	if (!user || !(await user.comparePassword(password))) {
 		throw new HttpError(400, "Invalid email or password");
+	}
+	if (user.isEmailVerified === false) {
+		throw new HttpError(
+			403,
+			"Please verify your email before logging in",
+			"EMAIL_NOT_VERIFIED"
+		);
 	}
 
 	await issueSession(res, user);

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { UserPlus, Mail, Lock, User, ArrowRight, Loader } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUserStore } from "../stores/useUserStore";
@@ -11,14 +11,14 @@ const SignUpPage = () => {
 		password: "",
 		confirmPassword: "",
 	});
+	const [createdEmail, setCreatedEmail] = useState("");
 
 	const { signup, loading } = useUserStore();
-	const navigate = useNavigate();
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
 		const ok = await signup(formData);
-		if (ok) navigate("/");
+		if (ok) setCreatedEmail(formData.email);
 	};
 
 	return (
@@ -40,6 +40,14 @@ const SignUpPage = () => {
 				transition={{ duration: 0.8, delay: 0.2 }}
 			>
 				<div className='bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10'>
+					{createdEmail && (
+						<div className="mb-6 rounded-md border border-nova-line bg-nova-bg p-4 text-sm text-nova-muted">
+							<p className="font-semibold text-nova-ink">Check your email</p>
+							<p className="mt-1">
+								We sent a verification link to {createdEmail}. Verify it before logging in.
+							</p>
+						</div>
+					)}
 					<form onSubmit={handleSubmit} className='space-y-6'>
 						<div>
 							<label htmlFor='name' className='block text-sm font-medium text-nova-muted'>
