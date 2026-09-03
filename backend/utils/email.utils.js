@@ -34,7 +34,7 @@ const isUnverifiedFrom = (value = "") =>
 const resendFromAddress = () => {
 	const custom = envVal("RESEND_FROM");
 	if (custom && !isUnverifiedFrom(custom)) return custom;
-	return "NOVA Store <beth.t@example.com>";
+	return "NOVA Store <onboarding@resend.dev>";
 };
 
 const sendViaResend = async ({ to, subject, text, html }) => {
