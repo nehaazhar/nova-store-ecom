@@ -490,87 +490,135 @@ const buildOrderEmailHtml = ({
 	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:32px 12px;">
 		<tr>
 			<td align="center">
-				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+					<!-- Dynamic Header based on event -->
 					<tr>
-						<td style="background:#059669;padding:28px 28px 24px;">
-							<div style="color:#a7f3d0;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;font-weight:600;">
-								E-Commerce Store
+						<td style="background:linear-gradient(135deg, ${meta.accent} 0%, ${meta.accent}cc 100%);padding:40px 28px;position:relative;overflow:hidden;">
+							<div style="position:absolute;top:-20px;right:-20px;width:100px;height:100px;border-radius:50%;background:rgba(255,255,255,0.1);"></div>
+							<div style="color:rgba(255,255,255,0.8);font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;">
+								${escapeHtml(meta.eyebrow)}
 							</div>
-							<h1 style="margin:10px 0 0;color:#ffffff;font-size:24px;line-height:1.3;font-weight:700;">
+							<h1 style="margin:12px 0 0;color:#ffffff;font-size:28px;line-height:1.3;font-weight:700;">
 								${escapeHtml(meta.title)}
 							</h1>
+							<p style="margin:8px 0 0;color:rgba(255,255,255,0.9);font-size:14px;">Order #${escapeHtml(orderId)}</p>
 						</td>
 					</tr>
+
+					<!-- Greeting -->
 					<tr>
-						<td style="padding:28px;">
-							<div style="display:inline-block;background:${meta.badgeBg};color:${meta.badgeText};font-size:12px;font-weight:700;padding:6px 12px;border-radius:999px;margin-bottom:16px;">
-								${escapeHtml(meta.eyebrow)} · #${escapeHtml(orderId)}
-							</div>
-							<p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
-								Hi ${safeName},
+						<td style="padding:40px 28px;border-bottom:1px solid #e5e7eb;">
+							<p style="margin:0;color:#374151;font-size:16px;line-height:1.6;">
+								<strong>Hi ${safeName},</strong>
 							</p>
-							<p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
+							<p style="margin:12px 0 0;color:#6b7280;font-size:15px;line-height:1.6;">
 								${meta.message(escapeHtml(orderId), escapeHtml(total))}
 							</p>
+						</td>
+					</tr>
 
-							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:20px;">
+					<!-- Order Summary Card -->
+					<tr>
+						<td style="padding:28px;">
+							<!-- Status Badge & Total -->
+							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);border:2px solid ${meta.badgeBg};border-radius:14px;margin-bottom:24px;overflow:hidden;">
 								<tr>
-									<td style="padding:16px 18px;">
-										<div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">
-											Order summary
-										</div>
+									<td style="padding:20px;">
 										<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 											<tr>
-												<td style="font-size:14px;color:#6b7280;padding:4px 0;">Order ID</td>
-												<td align="right" style="font-size:14px;color:#111827;font-weight:600;padding:4px 0;">#${escapeHtml(orderId)}</td>
-											</tr>
-											<tr>
-												<td style="font-size:14px;color:#6b7280;padding:4px 0;">Total</td>
-												<td align="right" style="font-size:18px;color:${meta.accent};font-weight:700;padding:4px 0;">₹${escapeHtml(total)}</td>
+												<td>
+													<div style="display:inline-block;background:${meta.badgeBg};color:${meta.badgeText};font-size:11px;font-weight:700;padding:8px 12px;border-radius:999px;">
+														${escapeHtml(meta.eyebrow)}
+													</div>
+												</td>
+												<td align="right">
+													<div style="font-size:24px;font-weight:700;color:${meta.accent};">₹${escapeHtml(total)}</div>
+													<div style="font-size:12px;color:#6b7280;">Order Total</div>
+												</td>
 											</tr>
 										</table>
-										${buildProductRows(products)}
+									</td>
+								</tr>
+								<tr>
+									<td style="padding:0 20px 20px;">
+										<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:10px;">
+											<tr>
+												<td style="padding:12px 14px;border-right:1px solid #e5e7eb;">
+													<div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;">Order ID</div>
+													<div style="font-size:14px;color:#111827;font-weight:600;margin-top:4px;">#${escapeHtml(orderId)}</div>
+												</td>
+												<td style="padding:12px 14px;">
+													<div style="font-size:11px;color:#6b7280;text-transform:uppercase;font-weight:700;">Date</div>
+													<div style="font-size:14px;color:#111827;font-weight:600;margin-top:4px;">${new Date().toLocaleDateString()}</div>
+												</td>
+											</tr>
+										</table>
 									</td>
 								</tr>
 							</table>
 
+							<!-- Products -->
+							${buildProductRows(products)}
+
+							<!-- Shipping Address -->
 							${
 								addressLines
-									? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:24px;">
-								<tr>
-									<td style="padding:16px 18px;">
-										<div style="font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;font-weight:600;margin-bottom:8px;">
-											Shipping address
-										</div>
-										<div style="font-size:14px;color:#111827;line-height:1.6;">
-											${addressLines}
-										</div>
-									</td>
-								</tr>
-							</table>`
+									? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-left:4px solid #059669;border-radius:10px;margin-bottom:24px;margin-top:24px;">
+										<tr>
+											<td style="padding:18px;">
+												<div style="font-size:12px;color:#065f46;text-transform:uppercase;letter-spacing:0.06em;font-weight:700;margin-bottom:8px;">📍 Shipping Address</div>
+												<div style="font-size:14px;color:#065f46;line-height:1.7;">
+													${addressLines}
+												</div>
+											</td>
+										</tr>
+									</table>`
 									: ""
 							}
 
+							<!-- CTA Button -->
 							${
 								ordersUrl
-									? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 8px;">
-								<tr>
-									<td align="center" style="border-radius:10px;background:${meta.accent};">
-										<a href="${escapeAttr(ordersUrl)}" style="display:inline-block;padding:12px 22px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:700;">
-											View your orders
-										</a>
-									</td>
-								</tr>
-							</table>`
+									? `<div style="text-align:center;margin:28px 0;">
+										<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+											<tr>
+												<td align="center" style="border-radius:10px;background:linear-gradient(135deg, ${meta.accent} 0%, ${meta.accent}cc 100%);box-shadow:0 4px 15px rgba(0,0,0,0.1);">
+													<a href="${escapeAttr(ordersUrl)}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:0.5px;">
+														Track Your Order →
+													</a>
+												</td>
+											</tr>
+										</table>
+									</div>`
 									: ""
 							}
+
+							<!-- Info Box -->
+							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border-radius:10px;border:1px solid #e0f2fe;margin-top:20px;">
+								<tr>
+									<td style="padding:16px;">
+										<p style="margin:0;color:#0c4a6e;font-size:13px;line-height:1.6;">
+											<strong>📧 Next Steps:</strong><br/>
+											We'll send you tracking information once your order ships. Keep this email for your records.
+										</p>
+									</td>
+								</tr>
+							</table>
 						</td>
 					</tr>
+
+					<!-- Footer -->
 					<tr>
-						<td style="padding:18px 28px 28px;border-top:1px solid #e5e7eb;text-align:center;">
-							<p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;">
-								You're receiving this because you placed an order on our store.<br/>
-								© ${year} E-Commerce Store
+						<td style="padding:28px;border-top:2px solid #e5e7eb;text-align:center;background:#f9fafb;">
+							<h3 style="margin:0 0 8px;color:#111827;font-size:14px;">🎉 NOVA Store</h3>
+							<p style="margin:0 0 12px;color:#6b7280;font-size:13px;line-height:1.6;">
+								Thank you for shopping with us!<br/>
+								${ordersUrl ? `<a href="${escapeAttr(ordersUrl)}" style="color:${meta.accent};text-decoration:none;font-weight:600;">View Orders</a> · ` : ''}
+								<a href="https://nova-store-ecom.onrender.com" style="color:${meta.accent};text-decoration:none;font-weight:600;">Visit Store</a>
+							</p>
+							<p style="margin:12px 0 0;color:#9ca3af;font-size:11px;line-height:1.5;">
+								© ${year} NOVA Store. All rights reserved.<br/>
+								This is an automated message. Please do not reply.
 							</p>
 						</td>
 					</tr>
@@ -585,22 +633,207 @@ const buildOrderEmailHtml = ({
 export const sendVerificationEmail = async ({ to, name, verifyUrl }) => {
 	const safeName = escapeHtml(name || "there");
 	const safeUrl = escapeAttr(verifyUrl);
+	const year = new Date().getFullYear();
+	
+	const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Verify your NOVA account</title>
+</head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:32px 12px;">
+		<tr>
+			<td align="center">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+					<!-- Header -->
+					<tr>
+						<td style="background:linear-gradient(135deg, #059669 0%, #047857 100%);padding:40px 28px;">
+							<div style="color:#a7f3d0;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;">
+								✓ Email Verification
+							</div>
+							<h1 style="margin:12px 0 0;color:#ffffff;font-size:28px;line-height:1.3;font-weight:700;">
+								Verify Your Account
+							</h1>
+						</td>
+					</tr>
+
+					<!-- Content -->
+					<tr>
+						<td style="padding:40px 28px;">
+							<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">
+								Hi ${safeName},
+							</p>
+							<p style="margin:0 0 28px;color:#6b7280;font-size:15px;line-height:1.6;">
+								Welcome to <strong style="color:#059669;">NOVA Store</strong>! To complete your registration and start shopping, please verify your email address by clicking the button below.
+							</p>
+
+							<div style="text-align:center;margin:32px 0;">
+								<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+									<tr>
+										<td align="center" style="border-radius:10px;background:linear-gradient(135deg, #059669 0%, #047857 100%);box-shadow:0 4px 15px rgba(5,150,105,0.3);">
+											<a href="${safeUrl}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:0.5px;">
+												Verify Email Address
+											</a>
+										</td>
+									</tr>
+								</table>
+							</div>
+
+							<!-- Info Box -->
+							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-left:4px solid #059669;border-radius:8px;margin:28px 0;">
+								<tr>
+									<td style="padding:16px;">
+										<p style="margin:0;color:#065f46;font-size:13px;line-height:1.6;">
+											<strong>⏱️ This link expires in 24 hours.</strong><br/>
+											If you didn't create this account, you can safely ignore this email.
+										</p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Alternative Link -->
+							<p style="margin:24px 0 0;color:#9ca3af;font-size:12px;line-height:1.5;">
+								If the button above doesn't work, copy and paste this link into your browser:<br/>
+								<span style="word-break:break-all;color:#6b7280;">${safeUrl}</span>
+							</p>
+						</td>
+					</tr>
+
+					<!-- Footer -->
+					<tr>
+						<td style="padding:24px 28px;border-top:1px solid #e5e7eb;text-align:center;background:#f9fafb;">
+							<p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+								<strong>NOVA Store</strong>
+							</p>
+							<p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.5;">
+								© ${year} NOVA Store. All rights reserved.<br/>
+								<a href="https://nova-store-ecom.onrender.com" style="color:#059669;text-decoration:none;">Visit our store</a>
+							</p>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>`;
+	
 	await sendEmail({
 		to,
-		subject: "Verify your NOVA account",
-		text: `Hi ${name || "there"},\n\nConfirm your email by opening this link:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
-		html: `<p>Hi ${safeName},</p><p>Confirm your email to finish creating your NOVA account.</p><p><a href="${safeUrl}">Verify email</a></p><p>This link expires in 24 hours.</p>`,
+		subject: "✓ Verify your NOVA account",
+		text: `Hi ${name || "there"},\n\nWelcome to NOVA Store! Confirm your email by opening this link:\n${verifyUrl}\n\nThis link expires in 24 hours.`,
+		html,
 	});
 };
 
 export const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
 	const safeName = escapeHtml(name || "there");
 	const safeUrl = escapeAttr(resetUrl);
+	const year = new Date().getFullYear();
+	
+	const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Reset your NOVA password</title>
+</head>
+<body style="margin:0;padding:0;background:#0f172a;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f172a;padding:32px 12px;">
+		<tr>
+			<td align="center">
+				<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 25px rgba(0,0,0,0.1);">
+					<!-- Header -->
+					<tr>
+						<td style="background:linear-gradient(135deg, #0f766e 0%, #115e59 100%);padding:40px 28px;">
+							<div style="color:#99f6e4;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;">
+								🔐 Password Reset
+							</div>
+							<h1 style="margin:12px 0 0;color:#ffffff;font-size:28px;line-height:1.3;font-weight:700;">
+								Reset Your Password
+							</h1>
+						</td>
+					</tr>
+
+					<!-- Content -->
+					<tr>
+						<td style="padding:40px 28px;">
+							<p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">
+								Hi ${safeName},
+							</p>
+							<p style="margin:0 0 28px;color:#6b7280;font-size:15px;line-height:1.6;">
+								We received a request to reset your password. Click the button below to create a new password for your NOVA Store account.
+							</p>
+
+							<div style="text-align:center;margin:32px 0;">
+								<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+									<tr>
+										<td align="center" style="border-radius:10px;background:linear-gradient(135deg, #0f766e 0%, #115e59 100%);box-shadow:0 4px 15px rgba(15,118,110,0.3);">
+											<a href="${safeUrl}" style="display:inline-block;padding:14px 32px;color:#ffffff;text-decoration:none;font-size:16px;font-weight:700;letter-spacing:0.5px;">
+												Reset Password
+											</a>
+										</td>
+									</tr>
+								</table>
+							</div>
+
+							<!-- Warning Box -->
+							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fef2f2;border-left:4px solid #ef4444;border-radius:8px;margin:28px 0;">
+								<tr>
+									<td style="padding:16px;">
+										<p style="margin:0;color:#7f1d1d;font-size:13px;line-height:1.6;">
+											<strong>⚠️ This link expires in 1 hour.</strong><br/>
+											If you didn't request this password reset, please ignore this email and your account will remain secure.
+										</p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Info Box -->
+							<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;border-radius:8px;margin:20px 0;border:1px solid #e0f2fe;">
+								<tr>
+									<td style="padding:16px;">
+										<p style="margin:0;color:#0c4a6e;font-size:13px;line-height:1.6;">
+											💡 <strong>Pro Tip:</strong> Never share your password with anyone. NOVA Store staff will never ask for your password via email.
+										</p>
+									</td>
+								</tr>
+							</table>
+
+							<!-- Alternative Link -->
+							<p style="margin:24px 0 0;color:#9ca3af;font-size:12px;line-height:1.5;">
+								If the button above doesn't work, copy and paste this link into your browser:<br/>
+								<span style="word-break:break-all;color:#6b7280;font-family:monospace;background:#f3f4f6;padding:4px 6px;border-radius:4px;display:inline-block;margin-top:6px;">${safeUrl}</span>
+							</p>
+						</td>
+					</tr>
+
+					<!-- Footer -->
+					<tr>
+						<td style="padding:24px 28px;border-top:1px solid #e5e7eb;text-align:center;background:#f9fafb;">
+							<p style="margin:0 0 8px;color:#6b7280;font-size:13px;">
+								<strong>NOVA Store</strong>
+							</p>
+							<p style="margin:0;color:#9ca3af;font-size:11px;line-height:1.5;">
+								© ${year} NOVA Store. All rights reserved.<br/>
+								<a href="https://nova-store-ecom.onrender.com" style="color:#0f766e;text-decoration:none;">Visit our store</a>
+							</p>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+</body>
+</html>`;
+	
 	await sendEmail({
 		to,
-		subject: "Reset your NOVA password",
-		text: `Hi ${name || "there"},\n\nReset your password using this link:\n${resetUrl}\n\nIf you did not request this, you can ignore this email. The link expires in 1 hour.`,
-		html: `<p>Hi ${safeName},</p><p>We received a request to reset your password.</p><p><a href="${safeUrl}">Reset password</a></p><p>If you did not request this, ignore this email. The link expires in 1 hour.</p>`,
+		subject: "🔐 Reset your NOVA password",
+		text: `Hi ${name || "there"},\n\nWe received a request to reset your password. Use this link:\n${resetUrl}\n\nIf you did not request this, you can ignore this email. The link expires in 1 hour.`,
+		html,
 	});
 };
 
