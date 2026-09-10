@@ -811,11 +811,6 @@ export const sendPasswordResetEmail = async ({ to, name, resetUrl }) => {
 								</tr>
 							</table>
 
-							<!-- Alternative Link -->
-							<p style="margin:24px 0 0;color:#9ca3af;font-size:12px;line-height:1.5;">
-								If the button above doesn't work, copy and paste this link into your browser:<br/>
-								<span style="word-break:break-all;color:#6b7280;font-family:monospace;background:#f3f4f6;padding:4px 6px;border-radius:4px;display:inline-block;margin-top:6px;">${safeUrl}</span>
-							</p>
 						</td>
 					</tr>
 
